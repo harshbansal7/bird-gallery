@@ -1,0 +1,17 @@
+src/
+├── components/
+│   ├── Layout/
+│   │   ├── Navbar.jsx
+│   │   └── PageContainer.jsx
+│   ├── Upload/
+│   │   ├── ImagePreview.jsx
+│   │   └── UploadForm.jsx
+│   ├── Gallery/
+│   │   └── ImageGallery.jsx
+│   └── Tags/
+│       └── TagManager.jsx
+├── services/
+│   ├── api.js
+│   └── config.js
+├── App.jsx
+└── main.jsx 

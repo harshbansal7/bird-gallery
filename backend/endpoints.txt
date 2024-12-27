@@ -1,0 +1,96 @@
+# Tag Management Endpoints
+
+1. Create a new tag
+POST http://localhost:5000/api/tags/
+Content-Type: application/json
+
+{
+    "name": "bird_name",
+    "values": ["Sparrow", "Eagle", "Owl"]
+}
+
+curl -X POST \
+  http://localhost:5000/api/tags/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "bird_name",
+    "values": ["Sparrow", "Eagle", "Owl"]
+}'
+
+---
+
+2. Get all tags
+GET http://localhost:5000/api/tags/
+
+curl -X GET http://localhost:5000/api/tags/
+
+---
+
+3. Add value to existing tag
+POST http://localhost:5000/api/tags/bird_name/values
+Content-Type: application/json
+
+{
+    "value": "Hawk"
+}
+
+curl -X POST \
+  http://localhost:5000/api/tags/bird_name/values \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "value": "Hawk"
+}'
+
+---
+
+# Photo Management Endpoints
+
+4. Upload a photo with tags
+POST http://localhost:5000/api/photos/
+Content-Type: multipart/form-data
+
+Form Data:
+- photo: [Select File]
+- bird_name: Eagle
+- city: New York
+- location: Central Park
+- date: 2024-02-20
+- motion: still
+- catch: normal
+
+curl -X POST \
+  http://localhost:5000/api/photos/ \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'photo=@/path/to/your/photo.jpg' \
+  -F 'bird_name=Eagle' \
+  -F 'city=New York' \
+  -F 'location=Central Park' \
+  -F 'date=2024-02-20' \
+  -F 'motion=still' \
+  -F 'catch=normal'
+
+---
+
+5. Get all photos
+GET http://localhost:5000/api/photos/
+
+curl -X GET http://localhost:5000/api/photos/
+
+---
+
+# Testing Sequence
+
+1. First, create tags for each category:
+   - bird_name
+   - city
+   - location
+   - motion (with values: "still", "motion")
+   - catch (with values: "normal", "catch")
+
+2. Add values to these tags as needed
+
+3. Try uploading photos with different combinations of tags
+
+4. Retrieve and verify the uploaded photos and their tags
+
+Note: Make sure MongoDB is running locally on port 27017 before testing. 
