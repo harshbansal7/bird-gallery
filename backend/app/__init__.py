@@ -41,7 +41,7 @@ def create_app():
         r"/api/*": {
             "origins": [
                 "http://localhost:5173",  # Local development
-                "https://your-frontend-domain.com"  # Production frontend
+                "https://bird-gallery-ochre.vercel.app/"  # Production frontend
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type"]
