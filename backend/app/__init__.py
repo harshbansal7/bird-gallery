@@ -16,7 +16,8 @@ def create_app():
          resources={r"/api/*": {
              "origins": [
                  "http://localhost:5173",
-                 "https://*.ngrok-free.app",  # Allow all ngrok subdomains
+                 "https://*.ngrok-free.app",
+                 "https://bird-gallery-ochre.vercel.app"
              ],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
              "allow_headers": ["Content-Type", "Authorization"],
