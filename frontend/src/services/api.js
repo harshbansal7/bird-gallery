@@ -3,24 +3,7 @@ import { API_BASE_URL } from './config'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  }
 })
-
-// Remove the CORS headers from the api instance since they're handled by the backend
-delete api.defaults.headers['Access-Control-Allow-Origin']
-
-// Add request interceptor to handle CORS preflight
-api.interceptors.request.use(
-  config => {
-    // Add any custom headers needed
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
 
 export const uploadPhoto = async (formData) => {
   const response = await api.post('/photos', formData)

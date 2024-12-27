@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from app import mongo
 from app.models.photo import Photo
 from app.utils.file_handler import allowed_file
+from app.services.fivemerr_service import FivemerrService
 
 photo_bp = Blueprint('photos', __name__)
 
@@ -19,18 +20,35 @@ def upload_photo():
     if not allowed_file(file.filename):
         return jsonify({'error': 'File type not allowed'}), 400
     
-    tags = request.form.to_dict()
-    
-    # Create a new photo document
-    photo = Photo(filename=secure_filename(file.filename), tags=tags)
-    
-    # Save file
-    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], f"{photo.id}_{photo.filename}"))
-    
-    # Save to MongoDB
-    mongo.db.photos.insert_one(photo.to_dict())
-    
-    return jsonify({'message': 'Photo uploaded successfully', 'photo_id': photo.id}), 201
+    try:
+        # Upload to Fivemerr
+        fivemerr_response = FivemerrService.upload_image(file)
+        
+        tags = request.form.to_dict()
+        
+        # Create a new photo document with Fivemerr data
+        photo = Photo(
+            filename=secure_filename(file.filename), 
+            tags=tags,
+            fivemerr_data={
+                'url': fivemerr_response['url'],
+                'id': fivemerr_response['id'],
+                'size': fivemerr_response['size']
+            }
+        )
+        
+        # Save to MongoDB
+        mongo.db.photos.insert_one(photo.to_dict())
+        
+        return jsonify({
+            'message': 'Photo uploaded successfully',
+            'photo_id': photo.id,
+            'url': fivemerr_response['url']
+        }), 201
+        
+    except Exception as e:
+        current_app.logger.error(f"Upload error: {str(e)}")
+        return jsonify({'error': 'Failed to upload photo'}), 500
 
 @photo_bp.route('/', methods=['GET'])
 def get_photos():

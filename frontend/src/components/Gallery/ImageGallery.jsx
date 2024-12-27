@@ -140,8 +140,8 @@ function ImageGallery() {
               }}
             >
               <Image
-                src={`${API_BASE_URL}/uploads/${photo._id}_${photo.filename}`}
-                alt={photo.tags?.bird_name || 'Bird photo'}
+                src={`${photo.url}`}
+                alt={photo.filename}
                 objectFit="cover"
                 w="100%"
                 h="300px"
@@ -228,7 +228,7 @@ function ImageGallery() {
                   bg="black"
                 >
                   <Image
-                    src={`${API_BASE_URL}/uploads/${selectedPhoto._id}_${selectedPhoto.filename}`}
+                    src={`${selectedPhoto.url}`}
                     alt={selectedPhoto.tags.bird_name}
                     objectFit="contain"
                     w="100%"

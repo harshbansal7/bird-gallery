@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: bird-gallery-api
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn run:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: MONGO_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: FIVEMERR_API_KEY
+        sync: false 
