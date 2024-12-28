@@ -81,4 +81,24 @@ export const getFilteredValues = async (tagName, parentFilters = {}) => {
     console.error('API error:', error.response?.data)
     throw error
   }
+}
+
+export const deletePhoto = async (photoId) => {
+  try {
+    const response = await api.delete(`/photos/${photoId}`)
+    return response.data
+  } catch (error) {
+    console.error('API error:', error.response?.data)
+    throw error
+  }
+}
+
+export const updatePhoto = async (photoId, updateData) => {
+  try {
+    const response = await api.put(`/photos/${photoId}`, updateData)
+    return response.data
+  } catch (error) {
+    console.error('API error:', error.response?.data)
+    throw error
+  }
 } 

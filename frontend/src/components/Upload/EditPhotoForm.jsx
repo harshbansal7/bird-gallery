@@ -11,97 +11,58 @@ import {
   Text,
   Heading,
   Icon,
-  useColorModeValue,
   SimpleGrid,
   InputGroup,
   InputLeftElement,
   Divider,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Image,
 } from '@chakra-ui/react'
-import { useDropzone } from 'react-dropzone'
 import { 
-  FiUpload, 
   FiCalendar, 
-  FiImage, 
   FiTag,
-  FiInfo 
+  FiSave,
 } from 'react-icons/fi'
-import ImagePreview from './ImagePreview'
-import { uploadPhoto, getTags, getFilteredValues } from '../../services/api'
+import { getTags, updatePhoto, getFilteredValues } from '../../services/api'
 import AutocompleteInput from '../common/AutocompleteInput'
-import { displayToDbKey, dbKeyToDisplay, isDateField } from '../../utils/tagUtils'
-import ExifReader from 'exifreader'
+import { displayToDbKey, dbKeyToDisplay } from '../../utils/tagUtils'
 
-function UploadForm() {
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
+function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
   const [tags, setTags] = useState({})
   const [tagDependencies, setTagDependencies] = useState({})
-  
-  // Initialize with date fields
   const [formData, setFormData] = useState({
-    date_clicked: new Date().toISOString().slice(0, 16),
-    date_uploaded: new Date().toISOString().slice(0, 16)
+    date_clicked: '',
+    date_uploaded: '',
   })
-
   const toast = useToast()
 
-  const bgColor = useColorModeValue('white', 'gray.800')
-  const borderColor = useColorModeValue('gray.200', 'gray.600')
-
-  const [isUploading, setIsUploading] = useState(false)
-
-  const extractImageMetadata = (file) => {
-    return new Promise(async (resolve) => {
-      try {
-        const tags = await ExifReader.load(file)
-        let dateTaken = null
-        
-        if (tags['DateCreated']) {
-          try {
-            // Parse the ISO date string from DateCreated
-            const dateValue = tags['DateCreated'].value
-            // Take only the date and time portion up to minutes
-            dateTaken = dateValue.slice(0, 16)
-          } catch (err) {
-            console.warn('Failed to parse DateCreated:', err)
-          }
+  // Load tags and initialize form data
+  useEffect(() => {
+    if (isOpen && photo) {
+      loadTags()
+      // Initialize form data with photo tags
+      setFormData(photo.tags || {})
+      
+      // Initialize tag dependencies from existing photo tags
+      const dependencies = {}
+      Object.entries(photo.tags || {}).forEach(([key, value]) => {
+        if (value) {
+          dependencies[key] = value
         }
-
-        resolve({
-          dateTaken: dateTaken || new Date().toISOString().slice(0, 16)
-        })
-      } catch (error) {
-        console.error('Error extracting EXIF data:', error)
-        resolve({
-          dateTaken: new Date().toISOString().slice(0, 16)
-        })
-      }
-    })
-  }
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png']
-    },
-    maxFiles: 1,
-    onDrop: async acceptedFiles => {
-      const file = acceptedFiles[0]
-      setFile(file)
-      setPreview(URL.createObjectURL(file))
-
-      // Extract and set date metadata
-      const metadata = await extractImageMetadata(file)
-      setFormData(prev => ({
-        ...prev,
-        date_clicked: metadata.dateTaken, // Always update with image date or current date
-      }))
+      })
+      setTagDependencies(dependencies)
     }
-  })
+  }, [isOpen, photo])
 
   const loadTags = async () => {
     try {
       const tagsData = await getTags()
-      // Convert the array of tags into an object with proper structure
       const tagsObject = tagsData.reduce((acc, tag) => {
         acc[tag.name] = {
           values: tag.values,
@@ -116,48 +77,6 @@ function UploadForm() {
         status: 'error',
         duration: 3000,
       })
-    }
-  }
-
-  useEffect(() => {
-    loadTags()
-  }, [])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!file) return
-
-    setIsUploading(true) // Start loading
-    const submitData = new FormData()
-    submitData.append('photo', file)
-    
-    Object.entries(formData).forEach(([key, value]) => {
-      const dbKey = displayToDbKey(key)
-      submitData.append(dbKey, value)
-    })
-
-    try {
-      await uploadPhoto(submitData)
-      toast({
-        title: 'Photo uploaded successfully',
-        status: 'success',
-        duration: 3000,
-      })
-      // Reset form
-      setFile(null)
-      setPreview(null)
-      setFormData({
-        date_clicked: new Date().toISOString().slice(0, 16),
-        date_uploaded: new Date().toISOString().slice(0, 16)
-      })
-    } catch (error) {
-      toast({
-        title: error.response?.data?.error || 'Error uploading photo',
-        status: 'error',
-        duration: 3000,
-      })
-    } finally {
-      setIsUploading(false) // End loading
     }
   }
 
@@ -190,9 +109,7 @@ function UploadForm() {
     }))
   }
 
-  // Function to get filtered suggestions for a tag
   const getFilteredSuggestions = async (tagName) => {
-    // Find parent tags for this tag
     const parentFilters = {}
     Object.entries(tagDependencies).forEach(([parentTag, parentValue]) => {
       if (tags[tagName]?.values.some(v => 
@@ -217,99 +134,50 @@ function UploadForm() {
     return tags[tagName]?.values || []
   }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await updatePhoto(photo._id, formData)
+      toast({
+        title: 'Photo updated successfully',
+        status: 'success',
+        duration: 3000,
+      })
+      onSuccess()
+      onClose()
+    } catch (error) {
+      toast({
+        title: error.response?.data?.error || 'Error updating photo',
+        status: 'error',
+        duration: 3000,
+      })
+    }
+  }
+
   return (
-    <VStack spacing={8} align="stretch">
-      <Box 
-        bgGradient="linear(to-r, green.50, green.100)" 
-        py={8} 
-        px={6} 
-        borderRadius="xl"
-        boxShadow="sm"
-      >
-        <Heading 
-          size="xl" 
-          color="green.800" 
-          mb={2}
-          textAlign="center"
-          fontFamily="'Playfair Display', serif"
-        >
-          Upload Photo
-        </Heading>
-        <Text 
-          color="green.600" 
-          textAlign="center" 
-          fontSize="lg"
-          fontStyle="italic"
-          mb={6}
-        >
-          Share your bird photography with the world
-        </Text>
-      </Box>
-
-      <HStack spacing={8} align="flex-start">
-        <Box 
-          flex="1"
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          shadow="sm"
-          border="1px"
-          borderColor="green.100"
-        >
-          <VStack
-            spacing={6}
-            as="form"
-            onSubmit={handleSubmit}
-          >
-            {/* Upload Section */}
-            <Box w="100%">
-              <Text 
-                fontSize="sm" 
-                fontWeight="medium" 
-                color="green.800"
-                mb={4}
-                display="flex"
-                alignItems="center"
-              >
-                <FiImage style={{ marginRight: '8px' }} />
-                Photo Upload
-              </Text>
-              <Box
-                {...getRootProps()}
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose}
+      size="4xl"
+      scrollBehavior="inside"
+    >
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Edit Photo Details</ModalHeader>
+        <ModalCloseButton />
+        
+        <ModalBody>
+          <VStack spacing={6} as="form" onSubmit={handleSubmit}>
+            {/* Preview Image */}
+            <Box w="100%" h="300px" bg="black" borderRadius="md" overflow="hidden">
+              <Image
+                src={photo?.url}
+                alt={photo?.filename}
+                objectFit="contain"
                 w="100%"
-                h="200px"
-                border="2px dashed"
-                borderColor={isDragActive ? 'green.400' : 'green.200'}
-                borderRadius="xl"
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                justifyContent="center"
-                cursor="pointer"
-                transition="all 0.2s"
-                bg={isDragActive ? 'green.50' : 'transparent'}
-                _hover={{ borderColor: 'green.400', bg: 'green.50' }}
-              >
-                <input {...getInputProps()} />
-                <Icon 
-                  as={FiUpload} 
-                  w={8} 
-                  h={8} 
-                  color={isDragActive ? 'green.500' : 'green.400'} 
-                  mb={3}
-                />
-                <Text color="green.600" textAlign="center" fontSize="sm">
-                  {isDragActive
-                    ? 'Drop your photo here'
-                    : 'Drag & drop your photo here, or click to browse'}
-                </Text>
-                <Text color="green.500" fontSize="xs" mt={2}>
-                  Supported formats: JPG, JPEG, PNG
-                </Text>
-              </Box>
+                h="100%"
+              />
             </Box>
-
-            <Divider borderColor="green.100" />
 
             {/* Date Section */}
             <Box w="100%">
@@ -421,33 +289,24 @@ function UploadForm() {
                   ))}
               </SimpleGrid>
             </Box>
-
-            <Button
-              type="submit"
-              colorScheme="green"
-              size="lg"
-              w="100%"
-              isDisabled={!file || isUploading}
-              isLoading={isUploading}
-              loadingText="Uploading..."
-              leftIcon={<FiUpload />}
-              _hover={{ transform: 'translateY(-1px)' }}
-              transition="all 0.2s"
-            >
-              Upload Photo
-            </Button>
           </VStack>
-        </Box>
+        </ModalBody>
 
-        <Box flex="1">
-          <ImagePreview
-            preview={preview}
-            formData={formData}
-          />
-        </Box>
-      </HStack>
-    </VStack>
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            colorScheme="green"
+            leftIcon={<FiSave />}
+            onClick={handleSubmit}
+          >
+            Save Changes
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   )
 }
 
-export default UploadForm 
+export default EditPhotoForm 

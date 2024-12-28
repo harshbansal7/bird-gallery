@@ -27,13 +27,14 @@ import {
   FiTag 
 } from 'react-icons/fi'
 import { useState, useEffect } from 'react'
-import { getTags } from '../../services/api'
+import { getTags, getFilteredValues } from '../../services/api'
 import AutocompleteInput from '../common/AutocompleteInput'
 import { displayToDbKey, dbKeyToDisplay } from '../../utils/tagUtils'
 
 function SearchBar({ onSearch }) {
   const [tags, setTags] = useState({})
   const [selectedFilters, setSelectedFilters] = useState({})
+  const [tagDependencies, setTagDependencies] = useState({})
   const [dateRanges, setDateRanges] = useState({
     date_clicked: { start: '', end: '' },
     date_uploaded: { start: '', end: '' }
@@ -45,8 +46,10 @@ function SearchBar({ onSearch }) {
     try {
       const tagsData = await getTags()
       const tagsObject = tagsData.reduce((acc, tag) => {
-        const displayName = dbKeyToDisplay(tag.name)
-        acc[displayName] = tag.values
+        acc[tag.name] = {
+          values: tag.values,
+          displayName: dbKeyToDisplay(tag.name)
+        }
         return acc
       }, {})
       setTags(tagsObject)
@@ -64,6 +67,54 @@ function SearchBar({ onSearch }) {
       ...prev,
       [tagName]: value ? [value] : undefined
     }))
+
+    const dependentTags = Object.entries(tags).filter(([_, tagInfo]) => 
+      tagInfo.values.some(v => 
+        typeof v === 'object' && 
+        v.parent_info && 
+        Object.keys(v.parent_info).includes(tagName)
+      )
+    )
+
+    const updatedFilters = { ...selectedFilters, [tagName]: value ? [value] : undefined }
+    dependentTags.forEach(([depTagName]) => {
+      updatedFilters[depTagName] = undefined
+    })
+    setSelectedFilters(updatedFilters)
+
+    setTagDependencies(prev => ({
+      ...prev,
+      [tagName]: value
+    }))
+  }
+
+  const getFilteredSuggestions = async (tagName) => {
+    const dbKey = displayToDbKey(tagName)
+    const parentFilters = {}
+    
+    Object.entries(tagDependencies).forEach(([parentTag, parentValue]) => {
+      if (tags[dbKey]?.values.some(v => 
+        typeof v === 'object' && 
+        v.parent_info && 
+        Object.keys(v.parent_info).includes(displayToDbKey(parentTag))
+      )) {
+        parentFilters[displayToDbKey(parentTag)] = parentValue
+      }
+    })
+
+    if (Object.keys(parentFilters).length > 0) {
+      try {
+        const filteredValues = await getFilteredValues(dbKey, parentFilters)
+        return filteredValues
+      } catch (error) {
+        console.error('Error getting filtered values:', error)
+        return []
+      }
+    }
+
+    return tags[dbKey]?.values.map(v => 
+      typeof v === 'string' ? v : v.value
+    ) || []
   }
 
   const handleSearch = () => {
@@ -233,7 +284,7 @@ function SearchBar({ onSearch }) {
                 Tag Filters
               </Text>
               <SimpleGrid columns={[1, 2, 3]} spacing={4}>
-                {Object.entries(tags).map(([tagName, values]) => (
+                {Object.entries(tags).map(([tagName, tagInfo]) => (
                   <Box key={tagName}>
                     <Text 
                       mb={2} 
@@ -241,14 +292,23 @@ function SearchBar({ onSearch }) {
                       color="gray.600"
                       fontWeight="medium"
                     >
-                      {tagName}
+                      {tagInfo.displayName}
                     </Text>
                     <AutocompleteInput
                       value={selectedFilters[tagName]?.[0] || ''}
                       onChange={(value) => handleFilterChange(tagName, value)}
-                      suggestions={values}
-                      placeholder={`Enter ${tagName}`}
+                      getSuggestions={() => getFilteredSuggestions(tagName)}
+                      placeholder={`Enter ${tagInfo.displayName}`}
                       name={tagName}
+                      isDisabled={
+                        tagInfo.values.some(v => 
+                          typeof v === 'object' && 
+                          v.parent_info && 
+                          Object.entries(v.parent_info).some(([parentTag]) => 
+                            !tagDependencies[parentTag]
+                          )
+                        )
+                      }
                       bg="green.50"
                       borderColor="green.200"
                       _hover={{ borderColor: 'green.300' }}

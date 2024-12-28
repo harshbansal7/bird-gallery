@@ -19,18 +19,27 @@ import {
   useColorModeValue,
   Skeleton,
   Container,
+  useToast,
 } from '@chakra-ui/react'
-import { FiMaximize2, FiCalendar, FiMapPin } from 'react-icons/fi'
-import { getAllPhotos, searchPhotos } from '../../services/api'
+import { FiMaximize2, FiCalendar, FiMapPin, FiTrash2, FiEdit2 } from 'react-icons/fi'
+import { getAllPhotos, searchPhotos, deletePhoto } from '../../services/api'
 import { API_BASE_URL } from '../../services/config'
 import SearchBar from './SearchBar'
 import { dbKeyToDisplay } from '../../utils/tagUtils'
+import EditPhotoForm from '../Upload/EditPhotoForm'
 
 function ImageGallery() {
   const [photos, setPhotos] = useState([])
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [loading, setLoading] = useState(true)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const {
+    isOpen: isEditOpen,
+    onOpen: onEditOpen,
+    onClose: onEditClose
+  } = useDisclosure()
+  const [editingPhoto, setEditingPhoto] = useState(null)
+  const toast = useToast()
 
   const bgColor = useColorModeValue('white', 'gray.800')
 
@@ -76,6 +85,40 @@ function ImageGallery() {
     const date = new Date(dateTimeStr);
     return date.toLocaleString();
   };
+
+  const handleDeletePhoto = async (photo, e) => {
+    e.stopPropagation()
+
+    if (!window.confirm('Are you sure you want to delete this photo?')) {
+      return
+    }
+
+    try {
+      await deletePhoto(photo._id)
+      toast({
+        title: 'Photo deleted successfully',
+        status: 'success',
+        duration: 3000,
+      })
+      loadPhotos()
+    } catch (error) {
+      toast({
+        title: error.response?.data?.error || 'Error deleting photo',
+        status: 'error',
+        duration: 3000,
+      })
+    }
+  }
+
+  const handleEditClick = (photo, e) => {
+    e.stopPropagation() // Prevent opening the modal
+    setEditingPhoto(photo)
+    onEditOpen()
+  }
+
+  const handleEditSuccess = () => {
+    loadPhotos() // Refresh the gallery
+  }
 
   return (
     <VStack spacing={8} align="stretch">
@@ -154,21 +197,46 @@ function ImageGallery() {
                 left={0}
                 right={0}
                 bottom={0}
-                bgGradient="linear(to-t, blackAlpha.700, blackAlpha.300)"
+                bgGradient="linear(to-t, blackAlpha.800, blackAlpha.400)"
                 opacity={0}
                 transition="all 0.3s"
                 flexDirection="column"
                 justify="flex-end"
                 p={4}
               >
-                <Text 
-                  color="white" 
-                  fontSize="lg" 
-                  fontWeight="bold"
-                  mb={2}
-                >
-                  {photo.tags?.name_of_bird || 'Unnamed Bird'}
-                </Text>
+                <HStack justify="space-between" w="100%" mb={2}>
+                  <Text color="white" fontSize="lg" fontWeight="bold">
+                    {photo.tags?.species || 'Unnamed Bird'}
+                  </Text>
+                  <HStack spacing={2}>
+                    <IconButton
+                      icon={<FiEdit2 />}
+                      size="sm"
+                      colorScheme="blue"
+                      bg="blue.500"
+                      color="white"
+                      _hover={{ 
+                        bg: 'blue.600',
+                        transform: 'scale(1.1)'
+                      }}
+                      transition="all 0.2s"
+                      onClick={(e) => handleEditClick(photo, e)}
+                    />
+                    <IconButton
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      colorScheme="red"
+                      bg="red.500"
+                      color="white"
+                      _hover={{ 
+                        bg: 'red.600',
+                        transform: 'scale(1.1)'
+                      }}
+                      transition="all 0.2s"
+                      onClick={(e) => handleDeletePhoto(photo, e)}
+                    />
+                  </HStack>
+                </HStack>
                 <HStack spacing={4}>
                   {photo.tags?.location && (
                     <HStack color="white">
@@ -227,8 +295,43 @@ function ImageGallery() {
                   w="100%"
                   bg="black"
                 >
+                  <Flex
+                    position="absolute"
+                    top={4}
+                    right={16}
+                    zIndex={1}
+                    gap={2}
+                  >
+                    <IconButton
+                      icon={<FiEdit2 />}
+                      size="md"
+                      colorScheme="blue"
+                      variant="solid"
+                      bg="blackAlpha.600"
+                      _hover={{ bg: 'blue.500' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onClose()
+                        handleEditClick(selectedPhoto, e)
+                      }}
+                    />
+                    <IconButton
+                      icon={<FiTrash2 />}
+                      size="md"
+                      colorScheme="red"
+                      variant="solid"
+                      bg="blackAlpha.600"
+                      _hover={{ bg: 'red.500' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onClose()
+                        handleDeletePhoto(selectedPhoto, e)
+                      }}
+                    />
+                  </Flex>
+
                   <Image
-                    src={`${selectedPhoto.url}`}
+                    src={selectedPhoto.url}
                     alt={selectedPhoto.tags.bird_name}
                     objectFit="contain"
                     w="100%"
@@ -282,6 +385,18 @@ function ImageGallery() {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {editingPhoto && (
+        <EditPhotoForm
+          photo={editingPhoto}
+          isOpen={isEditOpen}
+          onClose={() => {
+            onEditClose()
+            setEditingPhoto(null)
+          }}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </VStack>
   )
 }

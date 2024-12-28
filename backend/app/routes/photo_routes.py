@@ -161,3 +161,59 @@ def get_photo_stats():
     
     except Exception as e:
         return jsonify({'error': f'Failed to get stats: {str(e)}'}), 500 
+
+@photo_bp.route('/<photo_id>', methods=['DELETE'])
+def delete_photo(photo_id):
+    try:
+        # Find the photo first
+        photo = mongo.db.photos.find_one({'_id': photo_id})
+        if not photo:
+            return jsonify({'error': 'Photo not found'}), 404
+
+        # Delete from Fivemerr first
+        if 'fivemerr_id' in photo:
+            try:
+                FivemerrService.delete_image(photo['fivemerr_id'])
+            except Exception as e:
+                current_app.logger.error(f"Failed to delete from Fivemerr: {str(e)}")
+                # Continue with database deletion even if Fivemerr fails
+
+        # Delete from database
+        result = mongo.db.photos.delete_one({'_id': photo_id})
+        
+        if result.deleted_count == 0:
+            return jsonify({'error': 'Failed to delete photo'}), 500
+            
+        return jsonify({'message': 'Photo deleted successfully'}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Delete error: {str(e)}")
+        return jsonify({'error': 'Failed to delete photo'}), 500 
+
+@photo_bp.route('/<photo_id>', methods=['PUT'])
+def update_photo(photo_id):
+    try:
+        # Get the update data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No update data provided'}), 400
+
+        # Find the photo first
+        photo = mongo.db.photos.find_one({'_id': photo_id})
+        if not photo:
+            return jsonify({'error': 'Photo not found'}), 404
+
+        # Update the tags
+        result = mongo.db.photos.update_one(
+            {'_id': photo_id},
+            {'$set': {'tags': data}}
+        )
+        
+        if result.matched_count == 0:
+            return jsonify({'error': 'Photo not found'}), 404
+            
+        return jsonify({'message': 'Photo updated successfully'}), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Update error: {str(e)}")
+        return jsonify({'error': 'Failed to update photo'}), 500 
