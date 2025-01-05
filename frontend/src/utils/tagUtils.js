@@ -5,6 +5,9 @@ export const displayToDbKey = (displayName) => {
 
 // Convert database key to display name
 export const dbKeyToDisplay = (dbKey) => {
+  if (dbKey === 'category') {
+    return 'Bird Family'
+  }
   return dbKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 

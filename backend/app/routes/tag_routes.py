@@ -30,7 +30,7 @@ def get_tags():
     tags = list(mongo.db.tags.find({
         'name': {'$nin': ['date_clicked', 'date_uploaded']}
     }))
-    print(f"Retrieved tags: {tags}")
+    # print(f"Retrieved tags: {tags}")
     return jsonify([Tag.from_dict(tag).to_dict() for tag in tags]), 200
 
 @tag_bp.route('/<tag_name>/values', methods=['POST'])

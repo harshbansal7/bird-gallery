@@ -55,15 +55,17 @@ function UploadForm() {
       try {
         const tags = await ExifReader.load(file)
         let dateTaken = null
-        
-        if (tags['DateCreated']) {
+        console.log(tags)
+        if (tags['DateTimeOriginal']) {
           try {
-            // Parse the ISO date string from DateCreated
-            const dateValue = tags['DateCreated'].value
-            // Take only the date and time portion up to minutes
-            dateTaken = dateValue.slice(0, 16)
+            // Parse the date string from DateTimeOriginal which is in format "YYYY:MM:DD HH:MM"
+            const dateValue = tags['DateTimeOriginal'].description
+            // Convert from "YYYY:MM:DD HH:MM" to "YYYY-MM-DDTHH:MM" format
+            const [datePart, timePart] = dateValue.split(' ')
+            const formattedDate = datePart.replace(/:/g, '-') // Replace : with - in date
+            dateTaken = `${formattedDate}T${timePart}`
           } catch (err) {
-            console.warn('Failed to parse DateCreated:', err)
+            console.warn('Failed to parse DateTimeOriginal:', err)
           }
         }
 
