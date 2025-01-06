@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -9,4 +10,5 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     FIVEMERR_API_KEY = os.getenv('FIVEMERR_API_KEY')
-    FIVEMERR_API_URL = 'https://api.fivemerr.com/v1/media/images' 
+    FIVEMERR_API_URL = 'https://api.fivemerr.com/v1/media/images'
+    FIREBASE_CONFIG = json.loads(os.getenv('FIREBASE_CONFIG')) 

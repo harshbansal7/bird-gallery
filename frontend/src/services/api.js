@@ -5,6 +5,15 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 })
 
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 export const uploadPhoto = async (formData) => {
   const response = await api.post('/photos', formData)
   return response.data
@@ -99,6 +108,16 @@ export const updatePhoto = async (photoId, updateData) => {
     return response.data
   } catch (error) {
     console.error('API error:', error.response?.data)
+    throw error
+  }
+}
+
+export const getCurrentUser = async () => {
+  try {
+    const response = await api.get('/auth/me')
+    return response.data
+  } catch (error) {
+    console.error('Error getting current user:', error)
     throw error
   }
 } 

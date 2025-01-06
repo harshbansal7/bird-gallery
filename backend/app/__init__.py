@@ -2,6 +2,9 @@ from flask import Flask
 from flask_pymongo import PyMongo
 from app.config import Config
 from flask_cors import CORS
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 
 mongo = PyMongo()
 
@@ -9,11 +12,15 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Disable strict slashes to handle URLs with or without trailing slash
-    app.url_map.strict_slashes = False
-    
     # Initialize MongoDB
     mongo.init_app(app)
+    
+    # Initialize Firebase with app context
+    from app.middleware.auth import init_firebase
+    init_firebase(app)
+    
+    # Disable strict slashes to handle URLs with or without trailing slash
+    app.url_map.strict_slashes = False
     
     # Create indexes for efficient searching
     with app.app_context():
@@ -32,9 +39,11 @@ def create_app():
     # Register blueprints
     from app.routes.photo_routes import photo_bp
     from app.routes.tag_routes import tag_bp
+    from app.routes.auth_routes import auth_bp
     
     app.register_blueprint(photo_bp, url_prefix='/api/photos')
     app.register_blueprint(tag_bp, url_prefix='/api/tags')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
     
     # Configure CORS for all routes under /api
     CORS(app, resources={
@@ -44,7 +53,7 @@ def create_app():
                 "https://bird-gallery-ochre.vercel.app"  # Production frontend
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type"]
+            "allow_headers": ["Content-Type", "Authorization"]
         }
     })
     
@@ -61,5 +70,22 @@ def create_app():
                 {'$setOnInsert': tag},
                 upsert=True
             )
+    
+    # Configure logging
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    
+    file_handler = RotatingFileHandler(
+        'logs/bird_gallery.log', 
+        maxBytes=10240, 
+        backupCount=10
+    )
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Bird Gallery startup')
     
     return app 

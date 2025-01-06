@@ -1,25 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  SimpleGrid,
   Box,
+  SimpleGrid,
   Image,
-  Text,
   VStack,
+  Text,
   Badge,
   HStack,
-  useDisclosure,
+  IconButton,
   Modal,
   ModalOverlay,
   ModalContent,
   ModalBody,
   ModalCloseButton,
-  Heading,
-  Flex,
-  IconButton,
   useColorModeValue,
-  Skeleton,
   Container,
   useToast,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  Button,
+  useDisclosure,
+  Heading,
+  Flex,
+  Skeleton,
 } from '@chakra-ui/react'
 import { FiMaximize2, FiCalendar, FiMapPin, FiTrash2, FiEdit2 } from 'react-icons/fi'
 import { getAllPhotos, searchPhotos, deletePhoto } from '../../services/api'
@@ -27,19 +34,19 @@ import { API_BASE_URL } from '../../services/config'
 import SearchBar from './SearchBar'
 import { dbKeyToDisplay } from '../../utils/tagUtils'
 import EditPhotoForm from '../Upload/EditPhotoForm'
+import { useAuth } from '../../contexts/AuthContext'
 
 function ImageGallery() {
   const [photos, setPhotos] = useState([])
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [loading, setLoading] = useState(true)
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const {
-    isOpen: isEditOpen,
-    onOpen: onEditOpen,
-    onClose: onEditClose
-  } = useDisclosure()
+  const { isOpen: isModalOpen, onOpen: onModalOpen, onClose: onModalClose } = useDisclosure()
+  const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure()
+  const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure()
   const [editingPhoto, setEditingPhoto] = useState(null)
   const toast = useToast()
+  const { isAdmin } = useAuth()
+  const cancelRef = useRef()
 
   const bgColor = useColorModeValue('white', 'gray.800')
 
@@ -77,7 +84,7 @@ function ImageGallery() {
 
   const handlePhotoClick = (photo) => {
     setSelectedPhoto(photo)
-    onOpen()
+    onModalOpen()
   }
 
   const formatDateTime = (dateTimeStr) => {
@@ -113,11 +120,37 @@ function ImageGallery() {
   const handleEditClick = (photo, e) => {
     e.stopPropagation() // Prevent opening the modal
     setEditingPhoto(photo)
-    onEditOpen()
+    onEditModalOpen()
   }
 
   const handleEditSuccess = () => {
     loadPhotos() // Refresh the gallery
+  }
+
+  const renderPhotoActions = (photo) => {
+    console.log('isAdmin:', isAdmin)
+    if (!isAdmin) return null;  // Don't show actions for non-admins
+    
+    return (
+      <HStack spacing={2}>
+        <IconButton
+          icon={<FiEdit2 />}
+          aria-label="Edit photo"
+          variant="ghost"
+          colorScheme="green"
+          size="sm"
+          onClick={() => handleEditClick(photo)}
+        />
+        <IconButton
+          icon={<FiTrash2 />}
+          aria-label="Delete photo"
+          variant="ghost"
+          colorScheme="red"
+          size="sm"
+          onClick={() => handleDeletePhoto(photo)}
+        />
+      </HStack>
+    )
   }
 
   return (
@@ -208,34 +241,19 @@ function ImageGallery() {
                   <Text color="white" fontSize="lg" fontWeight="bold">
                     {photo.tags?.species || 'Unnamed Bird'}
                   </Text>
-                  <HStack spacing={2}>
-                    <IconButton
-                      icon={<FiEdit2 />}
-                      size="sm"
-                      colorScheme="blue"
-                      bg="blue.500"
-                      color="white"
-                      _hover={{ 
-                        bg: 'blue.600',
-                        transform: 'scale(1.1)'
-                      }}
-                      transition="all 0.2s"
-                      onClick={(e) => handleEditClick(photo, e)}
-                    />
-                    <IconButton
-                      icon={<FiTrash2 />}
-                      size="sm"
-                      colorScheme="red"
-                      bg="red.500"
-                      color="white"
-                      _hover={{ 
-                        bg: 'red.600',
-                        transform: 'scale(1.1)'
-                      }}
-                      transition="all 0.2s"
-                      onClick={(e) => handleDeletePhoto(photo, e)}
-                    />
-                  </HStack>
+                  <Box
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    bg="blackAlpha.600"
+                    borderRadius="md"
+                    p={1}
+                    opacity={0}
+                    _groupHover={{ opacity: 1 }}
+                    transition="all 0.2s"
+                  >
+                    {renderPhotoActions(photo)}
+                  </Box>
                 </HStack>
                 <HStack spacing={4}>
                   {photo.tags?.location && (
@@ -269,8 +287,8 @@ function ImageGallery() {
       </SimpleGrid>
 
       <Modal 
-        isOpen={isOpen} 
-        onClose={onClose} 
+        isOpen={isModalOpen} 
+        onClose={onModalClose} 
         size="4xl"
         motionPreset="slideInBottom"
       >
@@ -311,7 +329,7 @@ function ImageGallery() {
                       _hover={{ bg: 'blue.500' }}
                       onClick={(e) => {
                         e.stopPropagation()
-                        onClose()
+                        onModalClose()
                         handleEditClick(selectedPhoto, e)
                       }}
                     />
@@ -324,7 +342,7 @@ function ImageGallery() {
                       _hover={{ bg: 'red.500' }}
                       onClick={(e) => {
                         e.stopPropagation()
-                        onClose()
+                        onModalClose()
                         handleDeletePhoto(selectedPhoto, e)
                       }}
                     />
@@ -389,13 +407,23 @@ function ImageGallery() {
       {editingPhoto && (
         <EditPhotoForm
           photo={editingPhoto}
-          isOpen={isEditOpen}
+          isOpen={isEditModalOpen}
           onClose={() => {
-            onEditClose()
+            onEditModalClose()
             setEditingPhoto(null)
           }}
           onSuccess={handleEditSuccess}
         />
+      )}
+
+      {isAdmin && (
+        <AlertDialog
+          isOpen={isDeleteAlertOpen}
+          leastDestructiveRef={cancelRef}
+          onClose={() => setIsDeleteAlertOpen(false)}
+        >
+          {/* ... delete confirmation dialog content ... */}
+        </AlertDialog>
       )}
     </VStack>
   )

@@ -39,7 +39,6 @@ function UploadForm() {
   
   // Initialize with date fields
   const [formData, setFormData] = useState({
-    date_clicked: new Date().toISOString().slice(0, 16),
     date_uploaded: new Date().toISOString().slice(0, 16)
   })
 
@@ -59,7 +58,7 @@ function UploadForm() {
         if (tags['DateTimeOriginal']) {
           try {
             // Parse the date string from DateTimeOriginal which is in format "YYYY:MM:DD HH:MM"
-            const dateValue = tags['DateTimeOriginal'].description
+            const dateValue = tags['DateTimeOriginal'].description.slice(0, 16)
             // Convert from "YYYY:MM:DD HH:MM" to "YYYY-MM-DDTHH:MM" format
             const [datePart, timePart] = dateValue.split(' ')
             const formattedDate = datePart.replace(/:/g, '-') // Replace : with - in date

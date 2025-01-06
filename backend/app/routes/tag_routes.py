@@ -1,10 +1,13 @@
 from flask import Blueprint, request, jsonify
 from app import mongo
 from app.models.tag import Tag
+from app.middleware.auth import require_auth, require_admin
 
 tag_bp = Blueprint('tags', __name__)
 
 @tag_bp.route('/', methods=['POST'])
+@require_auth
+@require_admin  # Only admins can create tags
 def create_tag():
     data = request.get_json()
     
@@ -34,6 +37,8 @@ def get_tags():
     return jsonify([Tag.from_dict(tag).to_dict() for tag in tags]), 200
 
 @tag_bp.route('/<tag_name>/values', methods=['POST'])
+@require_auth
+@require_admin  # Only admins can add tag values
 def add_tag_value(tag_name):
     data = request.get_json()
     
@@ -111,6 +116,8 @@ def get_filtered_values(tag_name):
     return jsonify(filtered_values), 200
 
 @tag_bp.route('/<tag_name>', methods=['DELETE'])
+@require_auth
+@require_admin  # Only admins can delete tags
 def delete_tag(tag_name):
     # Don't allow deletion of system tags
     if tag_name in ['date_clicked', 'date_uploaded']:
@@ -124,6 +131,8 @@ def delete_tag(tag_name):
     return jsonify({'message': 'Tag deleted successfully'}), 200
 
 @tag_bp.route('/<tag_name>/values', methods=['DELETE'])
+@require_auth
+@require_admin  # Only admins can delete tag values
 def delete_tag_value(tag_name):
     data = request.get_json()
     

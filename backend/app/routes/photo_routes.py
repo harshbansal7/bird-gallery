@@ -5,10 +5,13 @@ from app import mongo
 from app.models.photo import Photo
 from app.utils.file_handler import allowed_file
 from app.services.fivemerr_service import FivemerrService
+from app.middleware.auth import require_auth, require_admin
 
 photo_bp = Blueprint('photos', __name__)
 
 @photo_bp.route('/', methods=['POST'])
+@require_auth
+@require_admin  # Only admins can upload
 def upload_photo():
     if 'photo' not in request.files:
         return jsonify({'error': 'No photo provided'}), 400
@@ -163,6 +166,8 @@ def get_photo_stats():
         return jsonify({'error': f'Failed to get stats: {str(e)}'}), 500 
 
 @photo_bp.route('/<photo_id>', methods=['DELETE'])
+@require_auth
+@require_admin  # Only admins can delete
 def delete_photo(photo_id):
     try:
         # Find the photo first
@@ -191,6 +196,8 @@ def delete_photo(photo_id):
         return jsonify({'error': 'Failed to delete photo'}), 500 
 
 @photo_bp.route('/<photo_id>', methods=['PUT'])
+@require_auth
+@require_admin  # Only admins can edit
 def update_photo(photo_id):
     try:
         # Get the update data

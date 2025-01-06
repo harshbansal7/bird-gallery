@@ -15,13 +15,17 @@ import {
   Container,
   Text,
   Icon,
+  useToast,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
-import { FiCamera, FiTag, FiMenu, FiFeather } from 'react-icons/fi'
+import { FiCamera, FiTag, FiMenu, FiFeather, FiLogIn, FiLogOut } from 'react-icons/fi'
+import { useAuth } from '../../contexts/AuthContext'
 
 function Header() {
   const { isOpen, onToggle } = useDisclosure()
   const location = useLocation()
+  const { user, logout } = useAuth()
+  const toast = useToast()
 
   const NavLink = ({ to, icon, children }) => {
     const isActive = location.pathname === to
@@ -47,6 +51,23 @@ function Header() {
         <Text fontWeight="medium">{children}</Text>
       </Link>
     )
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: 'Logged out successfully',
+        status: 'success',
+        duration: 3000,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to log out',
+        status: 'error',
+        duration: 3000,
+      })
+    }
   }
 
   return (
@@ -134,6 +155,35 @@ function Header() {
             </NavLink>
           </Stack>
         </Box>
+
+        <HStack spacing={4}>
+          {user ? (
+            <>
+              <Text fontSize="sm" color="gray.600">
+                {user.email}
+              </Text>
+              <Button
+                leftIcon={<FiLogOut />}
+                variant="ghost"
+                onClick={handleLogout}
+                size="sm"
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button
+              leftIcon={<FiLogIn />}
+              colorScheme="green"
+              variant="ghost"
+              as={RouterLink}
+              to="/login"
+              size="sm"
+            >
+              Login
+            </Button>
+          )}
+        </HStack>
       </Container>
     </Box>
   )
