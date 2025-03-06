@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Box,
   SimpleGrid,
-  Image,
   VStack,
   Text,
   Badge,
@@ -14,39 +13,48 @@ import {
   ModalBody,
   ModalCloseButton,
   useColorModeValue,
-  Container,
   useToast,
   AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogOverlay,
   Button,
   useDisclosure,
   Heading,
   Flex,
   Skeleton,
+  Spinner,
+  Image,
+  Link,
+  Tooltip,
 } from '@chakra-ui/react'
-import { FiMaximize2, FiCalendar, FiMapPin, FiTrash2, FiEdit2 } from 'react-icons/fi'
+import { FiCalendar, FiMapPin, FiTrash2, FiEdit2, FiChevronDown, FiDownload } from 'react-icons/fi'
 import { getAllPhotos, searchPhotos, deletePhoto } from '../../services/api'
-import { API_BASE_URL } from '../../services/config'
 import SearchBar from './SearchBar'
 import { dbKeyToDisplay } from '../../utils/tagUtils'
 import EditPhotoForm from '../Upload/EditPhotoForm'
 import { useAuth } from '../../contexts/AuthContext'
+import OptimizedImage from '../common/OptimizedImage'
+
+// Number of images to load initially and per batch
+const IMAGES_PER_PAGE = 12;
 
 function ImageGallery() {
   const [photos, setPhotos] = useState([])
+  const [visiblePhotos, setVisiblePhotos] = useState([])
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(1)
+  const [fullResImageLoading, setFullResImageLoading] = useState(false)
   const { isOpen: isModalOpen, onOpen: onModalOpen, onClose: onModalClose } = useDisclosure()
   const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure()
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure()
   const [editingPhoto, setEditingPhoto] = useState(null)
+  const [searchCriteria, setSearchCriteria] = useState({})
   const toast = useToast()
   const { isAdmin } = useAuth()
   const cancelRef = useRef()
+  const loadMoreRef = useRef(null)
 
   const bgColor = useColorModeValue('white', 'gray.800')
 
@@ -54,11 +62,19 @@ function ImageGallery() {
     loadPhotos()
   }, [])
 
-  const loadPhotos = async () => {
+  const loadPhotos = async (resetPage = true) => {
     try {
-      setLoading(true)
+      setLoading(resetPage) // Only show full loading on initial load or search
       const data = await getAllPhotos()
       setPhotos(data)
+      
+      // Reset pagination when loading new photos
+      if (resetPage) {
+        setPage(1)
+        const initialPhotos = data.slice(0, IMAGES_PER_PAGE)
+        setVisiblePhotos(initialPhotos)
+        setHasMore(data.length > IMAGES_PER_PAGE)
+      }
     } catch (error) {
       console.error('Error loading photos:', error)
     } finally {
@@ -66,11 +82,57 @@ function ImageGallery() {
     }
   }
 
-  const handleSearch = async (searchCriteria) => {
+  const loadMorePhotos = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const start = (nextPage - 1) * IMAGES_PER_PAGE;
+    const end = nextPage * IMAGES_PER_PAGE;
+    const nextBatch = photos.slice(start, end);
+    
+    setTimeout(() => {
+      setVisiblePhotos(prev => [...prev, ...nextBatch]);
+      setPage(nextPage);
+      setHasMore(end < photos.length);
+      setLoadingMore(false);
+    }, 500); // Small timeout to avoid UI freeze
+  }, [photos, page, hasMore, loadingMore]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMorePhotos();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observer.observe(loadMoreRef.current);
+    
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [loadMorePhotos, hasMore, loadingMore]);
+
+  const handleSearch = async (criteria) => {
     try {
       setLoading(true)
-      const data = await searchPhotos(searchCriteria)
+      setSearchCriteria(criteria)
+      const data = await searchPhotos(criteria)
       setPhotos(data)
+      
+      // Reset pagination
+      setPage(1)
+      const initialPhotos = data.slice(0, IMAGES_PER_PAGE)
+      setVisiblePhotos(initialPhotos)
+      setHasMore(data.length > IMAGES_PER_PAGE)
     } catch (error) {
       console.error('Error searching photos:', error)
     } finally {
@@ -78,12 +140,9 @@ function ImageGallery() {
     }
   }
 
-  useEffect(() => {
-    console.log('Photos:', photos)
-  }, [photos])
-
   const handlePhotoClick = (photo) => {
     setSelectedPhoto(photo)
+    setFullResImageLoading(true)
     onModalOpen()
   }
 
@@ -94,7 +153,7 @@ function ImageGallery() {
   };
 
   const handleDeletePhoto = async (photo, e) => {
-    e.stopPropagation()
+    if (e) e.stopPropagation()
 
     if (!window.confirm('Are you sure you want to delete this photo?')) {
       return
@@ -118,7 +177,7 @@ function ImageGallery() {
   }
 
   const handleEditClick = (photo, e) => {
-    e.stopPropagation() // Prevent opening the modal
+    if (e) e.stopPropagation() // Prevent opening the modal
     setEditingPhoto(photo)
     onEditModalOpen()
   }
@@ -128,7 +187,6 @@ function ImageGallery() {
   }
 
   const renderPhotoActions = (photo) => {
-    console.log('isAdmin:', isAdmin)
     if (!isAdmin) return null;  // Don't show actions for non-admins
     
     return (
@@ -139,7 +197,7 @@ function ImageGallery() {
           variant="ghost"
           colorScheme="green"
           size="sm"
-          onClick={() => handleEditClick(photo)}
+          onClick={(e) => handleEditClick(photo, e)}
         />
         <IconButton
           icon={<FiTrash2 />}
@@ -147,7 +205,7 @@ function ImageGallery() {
           variant="ghost"
           colorScheme="red"
           size="sm"
-          onClick={() => handleDeletePhoto(photo)}
+          onClick={(e) => handleDeletePhoto(photo, e)}
         />
       </HStack>
     )
@@ -187,6 +245,7 @@ function ImageGallery() {
         columns={[1, 2, 3, 4]} 
         spacing={6} 
         px={4}
+        position="relative"
       >
         {loading ? (
           Array(8).fill(0).map((_, i) => (
@@ -198,8 +257,8 @@ function ImageGallery() {
               endColor="green.100"
             />
           ))
-        ) : photos.length > 0 ? (
-          photos.map((photo) => (
+        ) : visiblePhotos.length > 0 ? (
+          visiblePhotos.map((photo) => (
             <Box
               key={photo._id}
               position="relative"
@@ -215,13 +274,13 @@ function ImageGallery() {
                 '& > .overlay': { opacity: 1 }
               }}
             >
-              <Image
-                src={`${photo.url}`}
+              <OptimizedImage
+                src={photo.url}
                 alt={photo.filename}
                 objectFit="cover"
-                w="100%"
-                h="300px"
-                fallback={<Skeleton height="300px" />}
+                width="100%"
+                height="300px"
+                borderRadius="xl"
               />
               <Flex
                 className="overlay"
@@ -286,6 +345,25 @@ function ImageGallery() {
         )}
       </SimpleGrid>
 
+      {/* Load more / infinite scroll trigger */}
+      {!loading && hasMore && (
+        <Box ref={loadMoreRef} textAlign="center" py={8}>
+          {loadingMore ? (
+            <Spinner color="green.500" size="md" />
+          ) : (
+            <Button
+              variant="ghost"
+              colorScheme="green"
+              rightIcon={<FiChevronDown />}
+              onClick={loadMorePhotos}
+              isLoading={loadingMore}
+            >
+              Load more photos
+            </Button>
+          )}
+        </Box>
+      )}
+
       <Modal 
         isOpen={isModalOpen} 
         onClose={onModalClose} 
@@ -312,7 +390,9 @@ function ImageGallery() {
                   position="relative"
                   w="100%"
                   bg="black"
+                  minHeight="50vh"
                 >
+                  {/* Controls overlay */}
                   <Flex
                     position="absolute"
                     top={4}
@@ -320,6 +400,23 @@ function ImageGallery() {
                     zIndex={1}
                     gap={2}
                   >
+                    {/* Download button for full resolution image */}
+                    <Tooltip label="Right-click to save image" placement="top">
+                      <IconButton
+                        as={Link}
+                        href={selectedPhoto.url}
+                        target="_blank"
+                        icon={<FiDownload />}
+                        size="md"
+                        colorScheme="green"
+                        variant="solid"
+                        bg="blackAlpha.600"
+                        _hover={{ bg: 'green.500' }}
+                        aria-label="Download full resolution"
+                        download={selectedPhoto.filename || "bird-image"}
+                      />
+                    </Tooltip>
+                    
                     <IconButton
                       icon={<FiEdit2 />}
                       size="md"
@@ -348,12 +445,31 @@ function ImageGallery() {
                     />
                   </Flex>
 
+                  {/* Full resolution image */}
+                  {fullResImageLoading && (
+                    <Flex 
+                      position="absolute"
+                      top={0}
+                      left={0}
+                      right={0}
+                      bottom={0}
+                      align="center"
+                      justify="center"
+                    >
+                      <Spinner color="white" size="xl" />
+                    </Flex>
+                  )}
+                  
+                  {/* Using regular Image component for full resolution image */}
                   <Image
                     src={selectedPhoto.url}
-                    alt={selectedPhoto.tags.bird_name}
+                    alt={selectedPhoto.tags.bird_name || 'Bird photo'}
                     objectFit="contain"
                     w="100%"
                     maxH="70vh"
+                    onLoad={() => setFullResImageLoading(false)}
+                    opacity={fullResImageLoading ? 0 : 1}
+                    transition="opacity 0.3s ease"
                   />
                 </Box>
                 <VStack 
@@ -397,6 +513,16 @@ function ImageGallery() {
                       )
                     })}
                   </SimpleGrid>
+                  
+                  {/* Download information text */}
+                  <Text 
+                    fontSize="sm" 
+                    color="gray.500" 
+                    textAlign="center"
+                    mt={2}
+                  >
+                    Right-click on image and select "Save image as..." to download full resolution photo
+                  </Text>
                 </VStack>
               </VStack>
             )}
@@ -420,7 +546,7 @@ function ImageGallery() {
         <AlertDialog
           isOpen={isDeleteAlertOpen}
           leastDestructiveRef={cancelRef}
-          onClose={() => setIsDeleteAlertOpen(false)}
+          onClose={onDeleteAlertClose}
         >
           {/* ... delete confirmation dialog content ... */}
         </AlertDialog>
@@ -429,4 +555,4 @@ function ImageGallery() {
   )
 }
 
-export default ImageGallery 
+export default ImageGallery

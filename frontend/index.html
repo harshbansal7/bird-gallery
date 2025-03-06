@@ -6,9 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Add meta tags for browser caching -->
+    <meta http-equiv="Cache-Control" content="max-age=86400">
+    <!-- Preconnect to your image CDN domain to speed up connections -->
+    <link rel="preconnect" href="https://api.fivemerr.com">
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Service Worker Registration -->
+    <script>
+      // Register service worker for caching and offline support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('Service worker registered: ', registration.scope);
+              
+              // Clear image cache periodically (once a week)
+              const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+              const lastCacheClear = localStorage.getItem('lastImageCacheClear');
+              const now = Date.now();
+              
+              if (!lastCacheClear || now - parseInt(lastCacheClear, 10) > WEEK_IN_MS) {
+                if (registration.active) {
+                  registration.active.postMessage({ type: 'CLEAR_IMAGES' });
+                  localStorage.setItem('lastImageCacheClear', now.toString());
+                }
+              }
+            })
+            .catch(error => {
+              console.error('Service worker registration failed: ', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
