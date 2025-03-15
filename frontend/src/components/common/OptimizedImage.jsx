@@ -12,64 +12,126 @@ import { API_BASE_URL } from '../../services/config';
  * @param {string} objectFit - CSS object-fit property
  * @param {object} props - Additional props to pass to Image component
  */
-function OptimizedImage({ src, alt, width, height, objectFit = 'cover', quality = 85, format = 'jpg', ...props }) {
+function OptimizedImage({ 
+  src, 
+  alt, 
+  width, 
+  height, 
+  objectFit = 'cover', 
+  quality = 80, 
+  format = 'webp', // Default to webp for better compression
+  priority = false, // Set to true for above-the-fold images
+  ...props 
+}) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [imgSrc, setImgSrc] = useState('');
+  const [loadAttempts, setLoadAttempts] = useState(0);
+
+  // Check if browser supports WebP
+  const supportsWebP = useMemo(() => {
+    // Simple feature detection - could be enhanced with a proper feature detection library
+    const canvas = document.createElement('canvas');
+    if (canvas.getContext && canvas.getContext('2d')) {
+      return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    }
+    return false;
+  }, []);
   
-  // Calculate responsive image size based on screen width
-  const optimizedWidth = useMemo(() => {
-    if (typeof width === 'number') return width;
-    
-    // If width is not specified, set a responsive width based on screen size
+  // Determine best format based on browser support
+  const bestFormat = useMemo(() => {
+    return supportsWebP ? 'webp' : format === 'webp' ? 'jpg' : format;
+  }, [supportsWebP, format]);
+  
+  // Calculate responsive image size based on screen width and DPR
+  const { optimizedWidth, optimizedHeight } = useMemo(() => {
+    // Get device pixel ratio for high-DPI displays
+    const pixelRatio = window.devicePixelRatio || 1;
     const screenWidth = window.innerWidth;
     
-    // Calculate optimal image width based on viewport and device pixel ratio
-    const pixelRatio = window.devicePixelRatio || 1;
+    let calculatedWidth;
+    if (typeof width === 'number') {
+      calculatedWidth = width * pixelRatio;
+    } else {
+      // Responsive width based on viewport
+      if (screenWidth <= 480) calculatedWidth = 320 * pixelRatio; // Mobile
+      else if (screenWidth <= 768) calculatedWidth = 450 * pixelRatio; // Tablet
+      else if (screenWidth <= 1280) calculatedWidth = 640 * pixelRatio; // Laptop
+      else calculatedWidth = 800 * pixelRatio; // Desktop
+    }
     
-    if (screenWidth <= 480) return 300 * pixelRatio; // Mobile
-    if (screenWidth <= 768) return 400 * pixelRatio; // Tablet
-    if (screenWidth <= 1280) return 500 * pixelRatio; // Laptop
-    return 700 * pixelRatio; // Desktop
-  }, [width, window.innerWidth]);
+    // Calculate height preserving aspect ratio if possible
+    let calculatedHeight;
+    if (typeof height === 'number') {
+      calculatedHeight = height * pixelRatio;
+    }
+    
+    return { 
+      optimizedWidth: Math.round(calculatedWidth), 
+      optimizedHeight: calculatedHeight ? Math.round(calculatedHeight) : undefined
+    };
+  }, [width, height, window.innerWidth, window.devicePixelRatio]);
   
   useEffect(() => {
     // Reset loaded state when src changes
     if (src) {
       setIsLoaded(false);
+      setLoadAttempts(0);
       
-      // Add a small delay before setting source to allow skeleton to render
+      // For priority images (above the fold), don't delay loading
+      const delay = priority ? 0 : 50;
+      
+      // Add a small delay before setting source to allow skeleton to render (except for priority images)
       const timer = setTimeout(() => {
         // Try to get an optimized version of the image if possible
         // If the source is already a data URL or from certain CDNs, use directly
-        if (src.startsWith('data:') || src.includes('placeholder.com')) {
+        if (src.startsWith('data:') || 
+            src.includes('placeholder.com') || 
+            src.includes('via.placeholder.com')) {
           setImgSrc(src);
         } else {
-          // Use our backend optimization endpoint
-          const optimizedUrl = `${API_BASE_URL}/photos/optimize?url=${encodeURIComponent(src)}&width=${optimizedWidth}&quality=${quality}&format=${format}`;
-          setImgSrc(optimizedUrl);
+          // Use our backend optimization endpoint with improved parameters
+          let optimizationUrl = `${API_BASE_URL}/photos/optimize?url=${encodeURIComponent(src)}&width=${optimizedWidth}&quality=${quality}&format=${bestFormat}`;
+          
+          // Add height parameter if specified
+          if (optimizedHeight) {
+            optimizationUrl += `&height=${optimizedHeight}`;
+          }
+          
+          setImgSrc(optimizationUrl);
         }
-      }, 50);
+      }, delay);
       
       return () => clearTimeout(timer);
     }
-  }, [src, optimizedWidth, quality, format]);
+  }, [src, optimizedWidth, optimizedHeight, quality, bestFormat, priority]);
   
   const handleImageError = (e) => {
-    console.error('Image failed to load:', src);
+    console.error(`Image failed to load (attempt ${loadAttempts + 1}):`, src);
     
-    // Try loading the original image as fallback if optimization failed
-    if (imgSrc !== src && !imgSrc.includes('placeholder.com')) {
+    // Implement a progressive fallback strategy
+    if (loadAttempts === 0) {
+      // First failure: try with different format (jpg is most compatible)
+      const fallbackFormat = 'jpg';
+      const fallbackUrl = `${API_BASE_URL}/photos/optimize?url=${encodeURIComponent(src)}&width=${optimizedWidth}&quality=${quality}&format=${fallbackFormat}`;
+      setImgSrc(fallbackUrl);
+      setLoadAttempts(1);
+    } 
+    else if (loadAttempts === 1) {
+      // Second failure: try direct source
       console.log('Falling back to original image');
       setImgSrc(src);
-    } else {
-      // If original image also fails, show placeholder
+      setLoadAttempts(2);
+    } 
+    else {
+      // Third failure: use placeholder
       e.target.src = `https://via.placeholder.com/${width || 300}x${height || 300}?text=Image+not+found`;
       setIsLoaded(true);
+      setLoadAttempts(3);
     }
   };
   
   return (
-    <Box position="relative" width={width || "100%"} height={height || "auto"}>
+    <Box position="relative" width={width || "100%"} height={height || "auto"} overflow="hidden">
       {!isLoaded && (
         <Skeleton
           position="absolute"
@@ -89,11 +151,12 @@ function OptimizedImage({ src, alt, width, height, objectFit = 'cover', quality 
         height="100%"
         objectFit={objectFit}
         opacity={isLoaded ? 1 : 0}
-        transition="opacity 0.5s"
+        transition="opacity 0.3s ease-in"
         onLoad={() => setIsLoaded(true)}
         onError={handleImageError}
-        loading="lazy"
-        decoding="async" // Browser-level optimization for image decoding
+        loading={priority ? "eager" : "lazy"}
+        decoding={priority ? "sync" : "async"}
+        fetchPriority={priority ? "high" : "auto"}
         {...props}
       />
     </Box>

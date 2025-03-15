@@ -9,9 +9,119 @@ from app.services.cloudinary_service import CloudinaryService
 from app.middleware.auth import require_auth, require_admin
 import requests
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
+import hashlib
+import time
+import functools
+import os.path
+from pathlib import Path
+import threading
+import mimetypes
 
 photo_bp = Blueprint('photos', __name__)
+
+# Create a simple in-memory cache for recently accessed images
+_image_cache = {}
+_cache_lock = threading.Lock()
+_MAX_CACHE_SIZE = 50  # Maximum number of items in cache
+
+# Cache directory for storing optimized images on disk
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Function to manage the in-memory cache
+def manage_cache():
+    with _cache_lock:
+        if len(_image_cache) > _MAX_CACHE_SIZE:
+            # Remove oldest items (based on access time)
+            items = sorted(_image_cache.items(), key=lambda x: x[1]['last_access'])
+            # Keep only the most recent half
+            for key, _ in items[:len(items)//2]:
+                del _image_cache[key]
+
+# Decorator for caching the optimized images
+def cache_optimized_image(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Generate a cache key from the request parameters
+        image_url = request.args.get('url', '')
+        width = request.args.get('width', '')
+        height = request.args.get('height', '')
+        quality = request.args.get('quality', '85')
+        output_format = request.args.get('format', 'webp').lower()  # Default to webp
+        
+        # Create a unique hash for this combination of parameters
+        cache_key = hashlib.md5(f"{image_url}:{width}:{height}:{quality}:{output_format}".encode()).hexdigest()
+        
+        # Check if we have this in memory cache
+        with _cache_lock:
+            if cache_key in _image_cache:
+                _image_cache[cache_key]['last_access'] = time.time()
+                return Response(
+                    _image_cache[cache_key]['data'], 
+                    headers=_image_cache[cache_key]['headers']
+                )
+        
+        # Check if we have this in disk cache
+        cache_file = os.path.join(CACHE_DIR, f"{cache_key}.{output_format}")
+        if os.path.exists(cache_file):
+            with open(cache_file, 'rb') as f:
+                data = f.read()
+                
+            # Determine content type
+            content_type = mimetypes.guess_type(cache_file)[0]
+            if not content_type:
+                content_type = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'webp': 'image/webp'
+                }.get(output_format, 'image/jpeg')
+                
+            headers = {
+                'Content-Type': content_type,
+                'Cache-Control': 'public, max-age=31536000',  # 1 year
+                'Vary': 'Accept-Encoding'
+            }
+            
+            # Store in memory cache for faster access next time
+            with _cache_lock:
+                _image_cache[cache_key] = {
+                    'data': data,
+                    'headers': headers,
+                    'last_access': time.time()
+                }
+                # Manage cache size periodically
+                threading.Thread(target=manage_cache).start()
+                
+            return Response(data, headers=headers)
+        
+        # If not in cache, call the original function
+        result = func(*args, **kwargs)
+        
+        # If result is valid, cache it for future use
+        if isinstance(result, Response) and result.status_code == 200:
+            data = result.get_data()
+            headers = dict(result.headers)
+            
+            # Save to disk cache
+            try:
+                with open(cache_file, 'wb') as f:
+                    f.write(data)
+            except Exception as e:
+                current_app.logger.error(f"Failed to write cache file: {str(e)}")
+            
+            # Save to memory cache
+            with _cache_lock:
+                _image_cache[cache_key] = {
+                    'data': data,
+                    'headers': headers,
+                    'last_access': time.time()
+                }
+                
+        return result
+    return wrapper
 
 @photo_bp.route('/', methods=['POST'])
 @require_auth
@@ -44,7 +154,8 @@ def upload_photo():
         if 'service' in tags:
             del tags['service']
         
-        # Create a new photo document with service data
+        # Create a new photo document with consistent storage format
+        # Both services return the same format: {'url': url, 'id': id, 'size': size}
         photo = Photo(
             filename=secure_filename(file.filename), 
             tags=tags,
@@ -256,6 +367,7 @@ def update_photo(photo_id):
         return jsonify({'error': 'Failed to update photo'}), 500
 
 @photo_bp.route('/optimize', methods=['GET'])
+@cache_optimized_image
 def get_optimized_image():
     """
     Serve optimized images with resizing and quality adjustments
@@ -264,8 +376,8 @@ def get_optimized_image():
     Optional query parameters:
     - width: Desired width (default: original)
     - height: Desired height (default: preserve aspect ratio)
-    - quality: JPEG quality 1-100 (default: 85)
-    - format: Output format (jpg, png, webp) (default: jpg)
+    - quality: JPEG quality 1-100 (default: 80)
+    - format: Output format (jpg, png, webp) (default: webp)
     """
     try:
         # Get parameters
@@ -275,15 +387,20 @@ def get_optimized_image():
         
         width = request.args.get('width', type=int)
         height = request.args.get('height', type=int)
-        quality = request.args.get('quality', 85, type=int)
-        output_format = request.args.get('format', 'jpg').lower()
+        quality = request.args.get('quality', 80, type=int)  # Lower default quality for better performance
+        output_format = request.args.get('format', 'webp').lower()  # Default to webp for better compression
+        
+        # Auto-detect browser support for WebP via Accept header
+        accept_header = request.headers.get('Accept', '')
+        if 'image/webp' in accept_header and not request.args.get('format'):
+            output_format = 'webp'  # Use WebP if browser supports it and no format specified
         
         # Validate params
         if quality < 1 or quality > 100:
-            quality = 85
+            quality = 80
             
         if output_format not in ['jpg', 'jpeg', 'png', 'webp']:
-            output_format = 'jpg'
+            output_format = 'webp'
             
         # Map format strings to PIL format
         format_mapping = {
@@ -294,12 +411,19 @@ def get_optimized_image():
         }
         pil_format = format_mapping[output_format]
         
-        # Fetch the original image
-        response = requests.get(image_url, stream=True)
+        # Set timeout to prevent hanging on slow image sources
+        timeout = 10  # seconds
+        
+        # Fetch the original image with a timeout
+        response = requests.get(image_url, stream=True, timeout=timeout)
         response.raise_for_status()
         
         # Process the image with PIL
         img = Image.open(BytesIO(response.content))
+        
+        # Auto-convert to RGB if needed (for formats like JPEG that don't support alpha)
+        if pil_format == 'JPEG' and img.mode == 'RGBA':
+            img = img.convert('RGB')
         
         # Resize if width or height provided
         if width or height:
@@ -312,13 +436,36 @@ def get_optimized_image():
             elif height and not width:
                 # Preserve aspect ratio
                 width = int(orig_width * (height / orig_height))
+            
+            # Use high-quality downsampling for better results
+            # LANCZOS is good for reduction, BOX is faster for significant reduction
+            resample_method = Image.LANCZOS
+            if width < orig_width / 2 or height < orig_height / 2:
+                resample_method = Image.BOX  # More efficient for large reductions
                 
             # Perform the resize
-            img = img.resize((width, height), Image.LANCZOS)
+            img = img.resize((width, height), resample_method)
         
+        # Apply additional optimizations based on format
+        save_args = {'quality': quality, 'optimize': True}
+        
+        # Format-specific optimizations
+        if pil_format == 'JPEG':
+            # Use progressive JPEGs for better perceived loading
+            save_args['progressive'] = True
+            
+            # Apply a bit of smart sharpening to make the resized image look better
+            if width or height:
+                img = ImageOps.autocontrast(img, cutoff=0.5)
+                
+        elif pil_format == 'WEBP':
+            # WebP-specific options for better quality/size ratio
+            save_args['method'] = 6  # Higher quality encoding (0-6)
+            save_args['lossless'] = False  # Use lossy compression for better compression
+            
         # Save the optimized image to a BytesIO object
         output = BytesIO()
-        img.save(output, format=pil_format, quality=quality, optimize=True)
+        img.save(output, format=pil_format, **save_args)
         output.seek(0)
         
         # Set appropriate content type
@@ -328,15 +475,21 @@ def get_optimized_image():
             'WEBP': 'image/webp'
         }
         
-        # Set cache control headers for browser caching
+        # Set response headers for browser caching and optimization
         response_headers = {
             'Content-Type': content_types[pil_format],
             'Cache-Control': 'public, max-age=31536000',  # 1 year
-            'Vary': 'Accept-Encoding'
+            'Vary': 'Accept-Encoding, Accept',  # Vary based on Accept header for WebP negotiation
+            'Content-Disposition': 'inline',
+            'ETag': hashlib.md5(output.getvalue()).hexdigest(),  # ETag for caching
+            'X-Image-Optimized': 'true'
         }
         
         return Response(output.getvalue(), headers=response_headers)
         
+    except requests.exceptions.Timeout:
+        current_app.logger.error(f"Timeout while fetching image: {image_url}")
+        return jsonify({'error': 'Timeout fetching image'}), 504
     except requests.exceptions.RequestException as e:
         current_app.logger.error(f"Failed to fetch image: {str(e)}")
         return jsonify({'error': 'Failed to fetch image'}), 502

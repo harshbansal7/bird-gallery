@@ -258,7 +258,7 @@ function ImageGallery() {
             />
           ))
         ) : visiblePhotos.length > 0 ? (
-          visiblePhotos.map((photo) => (
+          visiblePhotos.map((photo, index) => (
             <Box
               key={photo._id}
               position="relative"
@@ -276,11 +276,13 @@ function ImageGallery() {
             >
               <OptimizedImage
                 src={photo.url}
-                alt={photo.filename}
+                alt={photo.tags?.species || photo.filename}
                 objectFit="cover"
                 width="100%"
                 height="300px"
                 borderRadius="xl"
+                priority={index < 4} // First four images load with higher priority
+                quality={75} // Slightly reduce quality for thumbnails to improve speed
               />
               <Flex
                 className="overlay"
@@ -417,35 +419,39 @@ function ImageGallery() {
                       />
                     </Tooltip>
                     
-                    <IconButton
-                      icon={<FiEdit2 />}
-                      size="md"
-                      colorScheme="blue"
-                      variant="solid"
-                      bg="blackAlpha.600"
-                      _hover={{ bg: 'blue.500' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onModalClose()
-                        handleEditClick(selectedPhoto, e)
-                      }}
-                    />
-                    <IconButton
-                      icon={<FiTrash2 />}
-                      size="md"
-                      colorScheme="red"
-                      variant="solid"
-                      bg="blackAlpha.600"
-                      _hover={{ bg: 'red.500' }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onModalClose()
-                        handleDeletePhoto(selectedPhoto, e)
-                      }}
-                    />
+                    {isAdmin && (
+                      <>
+                        <IconButton
+                          icon={<FiEdit2 />}
+                          size="md"
+                          colorScheme="blue"
+                          variant="solid"
+                          bg="blackAlpha.600"
+                          _hover={{ bg: 'blue.500' }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onModalClose()
+                            handleEditClick(selectedPhoto, e)
+                          }}
+                        />
+                        <IconButton
+                          icon={<FiTrash2 />}
+                          size="md"
+                          colorScheme="red"
+                          variant="solid"
+                          bg="blackAlpha.600"
+                          _hover={{ bg: 'red.500' }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onModalClose()
+                            handleDeletePhoto(selectedPhoto, e)
+                          }}
+                        />
+                      </>
+                    )}
                   </Flex>
-
-                  {/* Full resolution image */}
+                  
+                  {/* Full resolution image with our optimizer component */}
                   {fullResImageLoading && (
                     <Flex 
                       position="absolute"
@@ -460,16 +466,18 @@ function ImageGallery() {
                     </Flex>
                   )}
                   
-                  {/* Using regular Image component for full resolution image */}
-                  <Image
+                  <OptimizedImage
                     src={selectedPhoto.url}
-                    alt={selectedPhoto.tags.bird_name || 'Bird photo'}
+                    alt={selectedPhoto.tags?.bird_name || 'Bird photo'}
                     objectFit="contain"
-                    w="100%"
-                    maxH="70vh"
+                    width="100%"
+                    height="70vh"
                     onLoad={() => setFullResImageLoading(false)}
                     opacity={fullResImageLoading ? 0 : 1}
                     transition="opacity 0.3s ease"
+                    priority={true} // High priority for the selected image view
+                    quality={90} // Higher quality for the enlarged view
+                    format="webp" // Use WebP for best quality/size ratio
                   />
                 </Box>
                 <VStack 
