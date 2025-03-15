@@ -439,23 +439,12 @@ function ImageGallery() {
       </Modal>
 
       {/* Edit Form Modal */}
-      <Modal 
-        isOpen={isEditing} 
+      <EditPhotoForm
+        photo={selectedPhoto}
+        isOpen={isEditing}
         onClose={() => setIsEditing(false)}
-        size="2xl"
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalCloseButton />
-          <ModalBody p={6}>
-            <EditPhotoForm
-              photo={selectedPhoto}
-              onSuccess={onEditSuccess}
-              onCancel={() => setIsEditing(false)}
-            />
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+        onSuccess={onEditSuccess}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

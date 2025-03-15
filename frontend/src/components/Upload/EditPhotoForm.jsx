@@ -9,7 +9,6 @@ import {
   Button,
   useToast,
   Text,
-  Heading,
   Icon,
   SimpleGrid,
   InputGroup,
@@ -145,7 +144,10 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    if (e) {
+      e.preventDefault()
+    }
+    
     try {
       await updatePhoto(photo._id, formData)
       toast({
@@ -153,8 +155,8 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
         status: 'success',
         duration: 3000,
       })
-      onSuccess()
-      onClose()
+      onSuccess?.()
+      onClose?.()
     } catch (error) {
       toast({
         title: error.response?.data?.error || 'Error updating photo',
@@ -199,7 +201,7 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
                 display="flex"
                 alignItems="center"
               >
-                <FiCalendar style={{ marginRight: '8px' }} />
+                <Icon as={FiCalendar} mr={2} />
                 Date Information
               </Text>
               <SimpleGrid columns={[1, 2]} spacing={4}>
@@ -213,11 +215,11 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
                     </InputLeftElement>
                     <Input
                       type="datetime-local"
-                      value={formData.date_clicked}
-                      onChange={(e) => setFormData({
-                        ...formData,
+                      value={formData.date_clicked || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
                         date_clicked: e.target.value
-                      })}
+                      }))}
                       bg="green.50"
                       borderColor="green.200"
                       _hover={{ borderColor: 'green.300' }}
@@ -237,7 +239,7 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
                     </InputLeftElement>
                     <Input
                       type="datetime-local"
-                      value={formData.date_uploaded}
+                      value={formData.date_uploaded || ''}
                       isReadOnly
                       bg="gray.50"
                       borderColor="gray.200"
@@ -261,7 +263,7 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
                 display="flex"
                 alignItems="center"
               >
-                <FiTag style={{ marginRight: '8px' }} />
+                <Icon as={FiTag} mr={2} />
                 Photo Details
               </Text>
               <SimpleGrid columns={[1, 2]} spacing={4}>
@@ -276,7 +278,7 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
                         {tagInfo.displayName}
                       </FormLabel>
                       <AutocompleteInput
-                        value={formData[tagName] ?? ''}
+                        value={formData[tagName] || ''}
                         onChange={(value) => handleTagChange(tagName, value)}
                         getSuggestions={() => getFilteredSuggestions(tagName)}
                         placeholder={`Enter ${tagInfo.displayName}`}
