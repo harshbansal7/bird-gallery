@@ -316,11 +316,6 @@ function ImageGallery() {
       >
         <ModalOverlay />
         <ModalContent bg="transparent" boxShadow="none">
-          <ModalCloseButton 
-            color="white" 
-            bg="blackAlpha.600"
-            _hover={{ bg: 'blackAlpha.700' }}
-          />
           <ModalBody p={0}>
             <Box 
               bg="white" 
@@ -335,7 +330,8 @@ function ImageGallery() {
                 gap={2}
                 zIndex={2}
               >
-                {user?.is_admin && (
+                {/* Admin actions */}
+                {user && user.role === 'admin' && (
                   <>
                     <IconButton
                       icon={<FiEdit2 />}
@@ -365,21 +361,35 @@ function ImageGallery() {
                     />
                   </>
                 )}
+                {/* Download and close buttons for all users */}
                 {selectedPhoto && (
-                  <Tooltip label="Download original">
-                    <IconButton
-                      as={Link}
-                      href={selectedPhoto.storage?.url || selectedPhoto.url}
-                      download
-                      icon={<FiDownload />}
-                      size="md"
-                      colorScheme="green"
-                      variant="solid"
-                      bg="blackAlpha.600"
-                      _hover={{ bg: 'green.500' }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </Tooltip>
+                  <>
+                    <Tooltip label="Download original">
+                      <IconButton
+                        as={Link}
+                        href={selectedPhoto.storage?.url || selectedPhoto.url}
+                        download
+                        icon={<FiDownload />}
+                        size="md"
+                        colorScheme="green"
+                        variant="solid"
+                        bg="blackAlpha.600"
+                        _hover={{ bg: 'green.500' }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Tooltip>
+                    <Tooltip label="Close">
+                      <IconButton
+                        icon={<ModalCloseButton position="static" />}
+                        size="md"
+                        colorScheme="gray"
+                        variant="solid"
+                        bg="blackAlpha.600"
+                        _hover={{ bg: 'gray.500' }}
+                        onClick={onClose}
+                      />
+                    </Tooltip>
+                  </>
                 )}
               </Flex>
               
