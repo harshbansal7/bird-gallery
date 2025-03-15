@@ -5,6 +5,7 @@ from app import mongo
 from app.models.photo import Photo
 from app.utils.file_handler import allowed_file
 from app.services.fivemerr_service import FivemerrService
+from app.services.cloudinary_service import CloudinaryService
 from app.middleware.auth import require_auth, require_admin
 import requests
 from io import BytesIO
@@ -27,19 +28,31 @@ def upload_photo():
         return jsonify({'error': 'File type not allowed'}), 400
     
     try:
-        # Upload to Fivemerr
-        fivemerr_response = FivemerrService.upload_image(file)
+        # Determine which service to use (default from config or from request)
+        service = request.form.get('service', current_app.config['DEFAULT_IMAGE_SERVICE'])
+        
+        # Upload to selected service
+        if service == 'cloudinary':
+            upload_response = CloudinaryService.upload_image(file)
+            storage_service = 'cloudinary'
+        else:
+            upload_response = FivemerrService.upload_image(file)
+            storage_service = 'fivemerr'
         
         tags = request.form.to_dict()
+        # Remove service parameter from tags
+        if 'service' in tags:
+            del tags['service']
         
-        # Create a new photo document with Fivemerr data
+        # Create a new photo document with service data
         photo = Photo(
             filename=secure_filename(file.filename), 
             tags=tags,
-            fivemerr_data={
-                'url': fivemerr_response['url'],
-                'id': fivemerr_response['id'],
-                'size': fivemerr_response['size']
+            storage={
+                'service': storage_service,
+                'url': upload_response['url'],
+                'id': upload_response['id'],
+                'size': upload_response['size']
             }
         )
         
@@ -49,7 +62,8 @@ def upload_photo():
         return jsonify({
             'message': 'Photo uploaded successfully',
             'photo_id': photo.id,
-            'url': fivemerr_response['url']
+            'url': upload_response['url'],
+            'service': storage_service
         }), 201
         
     except Exception as e:
@@ -178,14 +192,27 @@ def delete_photo(photo_id):
         if not photo:
             return jsonify({'error': 'Photo not found'}), 404
 
-        # Delete from Fivemerr first
-        if 'fivemerr_id' in photo:
+        # Delete from appropriate storage service
+        if 'storage' in photo:
+            storage_service = photo['storage'].get('service', 'fivemerr')
+            storage_id = photo['storage'].get('id')
+            
+            if storage_id:
+                try:
+                    if storage_service == 'cloudinary':
+                        CloudinaryService.delete_image(storage_id)
+                    else:
+                        FivemerrService.delete_image(storage_id)
+                except Exception as e:
+                    current_app.logger.error(f"Failed to delete from {storage_service}: {str(e)}")
+                    # Continue with database deletion even if service deletion fails
+        # For backward compatibility with old data structure
+        elif 'fivemerr_data' in photo and 'id' in photo['fivemerr_data']:
             try:
-                FivemerrService.delete_image(photo['fivemerr_id'])
+                FivemerrService.delete_image(photo['fivemerr_data']['id'])
             except Exception as e:
                 current_app.logger.error(f"Failed to delete from Fivemerr: {str(e)}")
-                # Continue with database deletion even if Fivemerr fails
-
+                
         # Delete from database
         result = mongo.db.photos.delete_one({'_id': photo_id})
         
