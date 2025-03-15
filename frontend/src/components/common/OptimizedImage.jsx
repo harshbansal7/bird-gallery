@@ -27,6 +27,11 @@ function OptimizedImage({
   const getOptimizedUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
     
+    // For modal view (70vh height), return original URL
+    if (height === '70vh') {
+      return url;
+    }
+    
     // Extract the base URL and file path
     const [baseUrl, ...pathParts] = url.split('/upload/');
     const filePath = pathParts.join('/upload/');
@@ -34,16 +39,10 @@ function OptimizedImage({
     // Determine transformations based on usage
     const transformations = [];
     
-    // Set width based on component usage
+    // Set width for gallery thumbnails
     if (height === '300px') {
       // Gallery view
-      transformations.push('w_300');
-    } else if (height === '70vh') {
-      // Modal view - larger but still optimized
       transformations.push('w_500');
-    } else {
-      // Full-width view - largest and most optimized
-      transformations.push('w_600');
     }
     
     // Add quality and format optimizations
