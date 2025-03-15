@@ -10,7 +10,15 @@ class Photo:
         
         # Support both the new storage format and legacy fivemerr_data format
         self.storage = storage or {}
-        self.fivemerr_data = fivemerr_data or {}
+        
+        # Convert legacy fivemerr_data to storage format if provided
+        if fivemerr_data and not self.storage:
+            self.storage = {
+                'service': 'fivemerr',
+                'url': fivemerr_data.get('url'),
+                'id': fivemerr_data.get('id'),
+                'size': fivemerr_data.get('size')
+            }
         
         # Ensure dates are properly formatted with time
         if 'date_clicked' in self.tags:
@@ -31,25 +39,17 @@ class Photo:
             'created_at': self.created_at
         }
         
-        # Include storage info if available (new format)
+        # Always include storage info in the consistent format
         if self.storage:
             result['storage'] = self.storage
-            # For backward compatibility
-            if self.storage.get('service') != 'cloudinary':  # Only add these for non-cloudinary services
-                result['url'] = self.storage.get('url')
-                result['fivemerr_id'] = self.storage.get('id')
-                result['size'] = self.storage.get('size')
-        # Fallback to legacy format if no storage info
-        elif self.fivemerr_data:
-            result['url'] = self.fivemerr_data.get('url')
-            result['fivemerr_id'] = self.fivemerr_data.get('id')
-            result['size'] = self.fivemerr_data.get('size')
             
         return result
     
     @staticmethod
     def from_dict(data):
-        # Check if using new storage format
+        # Handle data coming from the database in different formats
+        
+        # Case 1: New format with 'storage' field
         if 'storage' in data:
             return Photo(
                 filename=data['filename'],
@@ -57,15 +57,20 @@ class Photo:
                 photo_id=str(data['_id']),
                 storage=data['storage']
             )
-        # Otherwise use legacy format
+            
+        # Case 2: Legacy format with separate fields
         else:
+            # Create a storage object from legacy fields
+            storage = {
+                'service': 'fivemerr',  # Default to fivemerr for legacy data
+                'url': data.get('url'),
+                'id': data.get('fivemerr_id'),
+                'size': data.get('size')
+            }
+            
             return Photo(
                 filename=data['filename'],
                 tags=data['tags'],
                 photo_id=str(data['_id']),
-                fivemerr_data={
-                    'url': data.get('url'),
-                    'id': data.get('fivemerr_id'),
-                    'size': data.get('size')
-                }
+                storage=storage
             )

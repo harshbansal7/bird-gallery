@@ -42,6 +42,16 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
   })
   const toast = useToast()
 
+  // Helper function to get photo URL regardless of storage format
+  const getPhotoUrl = (photo) => {
+    // New format with storage object
+    if (photo?.storage && photo.storage.url) {
+      return photo.storage.url;
+    }
+    // Legacy format with url at root level
+    return photo?.url;
+  }
+
   // Load tags and initialize form data
   useEffect(() => {
     if (isOpen && photo) {
@@ -171,7 +181,7 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
             {/* Preview Image */}
             <Box w="100%" h="300px" bg="black" borderRadius="md" overflow="hidden">
               <Image
-                src={photo?.url}
+                src={getPhotoUrl(photo)}
                 alt={photo?.filename}
                 objectFit="contain"
                 w="100%"
@@ -309,4 +319,4 @@ function EditPhotoForm({ photo, isOpen, onClose, onSuccess }) {
   )
 }
 
-export default EditPhotoForm 
+export default EditPhotoForm

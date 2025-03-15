@@ -178,4 +178,4 @@ function ImagePreview({ preview, formData }) {
   )
 }
 
-export default ImagePreview 
+export default ImagePreview

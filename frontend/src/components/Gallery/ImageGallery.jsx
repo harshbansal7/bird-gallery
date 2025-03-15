@@ -58,6 +58,16 @@ function ImageGallery() {
 
   const bgColor = useColorModeValue('white', 'gray.800')
 
+  // Helper function to get photo URL regardless of storage format
+  const getPhotoUrl = (photo) => {
+    // New format with storage object
+    if (photo.storage && photo.storage.url) {
+      return photo.storage.url;
+    }
+    // Legacy format with url at root level
+    return photo.url;
+  }
+
   useEffect(() => {
     loadPhotos()
   }, [])
@@ -275,7 +285,7 @@ function ImageGallery() {
               }}
             >
               <OptimizedImage
-                src={photo.url}
+                src={getPhotoUrl(photo)}
                 alt={photo.tags?.species || photo.filename}
                 objectFit="cover"
                 width="100%"
@@ -406,7 +416,7 @@ function ImageGallery() {
                     <Tooltip label="Right-click to save image" placement="top">
                       <IconButton
                         as={Link}
-                        href={selectedPhoto.url}
+                        href={getPhotoUrl(selectedPhoto)}
                         target="_blank"
                         icon={<FiDownload />}
                         size="md"
@@ -467,7 +477,7 @@ function ImageGallery() {
                   )}
                   
                   <OptimizedImage
-                    src={selectedPhoto.url}
+                    src={getPhotoUrl(selectedPhoto)}
                     alt={selectedPhoto.tags?.bird_name || 'Bird photo'}
                     objectFit="contain"
                     width="100%"
@@ -556,7 +566,8 @@ function ImageGallery() {
           leastDestructiveRef={cancelRef}
           onClose={onDeleteAlertClose}
         >
-          {/* ... delete confirmation dialog content ... */}
+          <AlertDialogOverlay />
+          {/* Delete confirmation dialog content */}
         </AlertDialog>
       )}
     </VStack>

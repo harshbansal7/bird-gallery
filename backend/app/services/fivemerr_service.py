@@ -32,8 +32,15 @@ class FivemerrService:
             # Raise exception for bad responses
             response.raise_for_status()
             
-            # Return the response data
-            return response.json()
+            # Get the response JSON
+            response_data = response.json()
+            
+            # Return formatted response in the same structure as CloudinaryService
+            return {
+                'url': response_data.get('url'),
+                'id': response_data.get('id'),
+                'size': response_data.get('size', 0)
+            }
             
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"Fivemerr upload error: {str(e)}")
@@ -63,4 +70,4 @@ class FivemerrService:
             
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"Fivemerr delete error: {str(e)}")
-            raise Exception("Failed to delete image from Fivemerr") 
+            raise Exception("Failed to delete image from Fivemerr")

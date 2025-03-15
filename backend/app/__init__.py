@@ -35,6 +35,10 @@ def create_app():
         ])
         # Index for creation date
         mongo.db.photos.create_index('created_at')
+        
+        # Run database migrations
+        from app.utils.db_migrate import run_migrations
+        run_migrations()
     
     # Register blueprints
     from app.routes.photo_routes import photo_bp
@@ -89,4 +93,4 @@ def create_app():
     app.logger.setLevel(logging.INFO)
     app.logger.info('Bird Gallery startup')
     
-    return app 
+    return app
