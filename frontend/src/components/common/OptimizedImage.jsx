@@ -23,6 +23,37 @@ function OptimizedImage({
       setIsLoaded(true);
     }
   };
+
+  const getOptimizedUrl = (url) => {
+    if (!url || !url.includes('cloudinary.com')) return url;
+    
+    // Extract the base URL and file path
+    const [baseUrl, ...pathParts] = url.split('/upload/');
+    const filePath = pathParts.join('/upload/');
+    
+    // Determine transformations based on usage
+    const transformations = [];
+    
+    // Set width based on component usage
+    if (height === '300px') {
+      // Gallery view
+      transformations.push('w_300');
+    } else if (height === '70vh') {
+      // Modal view - larger but still optimized
+      transformations.push('w_500');
+    } else {
+      // Full-width view - largest and most optimized
+      transformations.push('w_600');
+    }
+    
+    // Add quality and format optimizations
+    transformations.push('q_auto', 'f_auto');
+    
+    // Combine transformations
+    const transformString = transformations.join('/');
+    
+    return `${baseUrl}/upload/${transformString}/${filePath}`;
+  };
   
   return (
     <Box position="relative" width={width || "100%"} height={height || "auto"} overflow="hidden">
@@ -39,7 +70,7 @@ function OptimizedImage({
         />
       )}
       <Image
-        src={src}
+        src={getOptimizedUrl(src)}
         alt={alt}
         width="100%"
         height="100%"
