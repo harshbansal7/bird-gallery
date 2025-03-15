@@ -12,7 +12,6 @@ import {
   ModalContent,
   ModalBody,
   ModalCloseButton,
-  useColorModeValue,
   useToast,
   AlertDialog,
   AlertDialogOverlay,
@@ -21,12 +20,10 @@ import {
   Heading,
   Flex,
   Skeleton,
-  Spinner,
-  Image,
   Link,
   Tooltip,
 } from '@chakra-ui/react'
-import { FiCalendar, FiMapPin, FiTrash2, FiEdit2, FiChevronDown, FiDownload } from 'react-icons/fi'
+import { FiCalendar, FiMapPin, FiTrash2, FiEdit2, FiDownload } from 'react-icons/fi'
 import { getAllPhotos, searchPhotos, deletePhoto } from '../../services/api'
 import SearchBar from './SearchBar'
 import { dbKeyToDisplay } from '../../utils/tagUtils'
@@ -34,63 +31,49 @@ import EditPhotoForm from '../Upload/EditPhotoForm'
 import { useAuth } from '../../contexts/AuthContext'
 import OptimizedImage from '../common/OptimizedImage'
 
-// Number of images to load initially and per batch
-const IMAGES_PER_PAGE = 12;
+const IMAGES_PER_PAGE = 24; // Increased batch size for better UX
 
 function ImageGallery() {
-  const [photos, setPhotos] = useState([])
-  const [visiblePhotos, setVisiblePhotos] = useState([])
-  const [selectedPhoto, setSelectedPhoto] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [page, setPage] = useState(1)
-  const [fullResImageLoading, setFullResImageLoading] = useState(false)
-  const { isOpen: isModalOpen, onOpen: onModalOpen, onClose: onModalClose } = useDisclosure()
-  const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure()
-  const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure()
-  const [editingPhoto, setEditingPhoto] = useState(null)
-  const [searchCriteria, setSearchCriteria] = useState({})
-  const toast = useToast()
-  const { isAdmin } = useAuth()
-  const cancelRef = useRef()
-  const loadMoreRef = useRef(null)
-
-  const bgColor = useColorModeValue('white', 'gray.800')
-
-  // Helper function to get photo URL regardless of storage format
-  const getPhotoUrl = (photo) => {
-    // New format with storage object
-    if (photo.storage && photo.storage.url) {
-      return photo.storage.url;
-    }
-    // Legacy format with url at root level
-    return photo.url;
-  }
+  const [photos, setPhotos] = useState([]);
+  const [visiblePhotos, setVisiblePhotos] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [searchCriteria, setSearchCriteria] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const loadMoreRef = useRef();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
+  const { user } = useAuth();
+  const deleteAlertDisclosure = useDisclosure();
+  const cancelDeleteRef = useRef();
 
   useEffect(() => {
-    loadPhotos()
-  }, [])
+    loadInitialPhotos();
+  }, []);
 
-  const loadPhotos = async (resetPage = true) => {
+  const loadInitialPhotos = async () => {
     try {
-      setLoading(resetPage) // Only show full loading on initial load or search
-      const data = await getAllPhotos()
-      setPhotos(data)
-      
-      // Reset pagination when loading new photos
-      if (resetPage) {
-        setPage(1)
-        const initialPhotos = data.slice(0, IMAGES_PER_PAGE)
-        setVisiblePhotos(initialPhotos)
-        setHasMore(data.length > IMAGES_PER_PAGE)
-      }
+      setLoading(true);
+      const data = await getAllPhotos();
+      setPhotos(data);
+      const initialPhotos = data.slice(0, IMAGES_PER_PAGE);
+      setVisiblePhotos(initialPhotos);
+      setHasMore(data.length > IMAGES_PER_PAGE);
     } catch (error) {
-      console.error('Error loading photos:', error)
+      console.error('Error loading photos:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load photos',
+        status: 'error',
+        duration: 5000,
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const loadMorePhotos = useCallback(() => {
     if (!hasMore || loadingMore) return;
@@ -101,15 +84,12 @@ function ImageGallery() {
     const end = nextPage * IMAGES_PER_PAGE;
     const nextBatch = photos.slice(start, end);
     
-    setTimeout(() => {
-      setVisiblePhotos(prev => [...prev, ...nextBatch]);
-      setPage(nextPage);
-      setHasMore(end < photos.length);
-      setLoadingMore(false);
-    }, 500); // Small timeout to avoid UI freeze
+    setVisiblePhotos(prev => [...prev, ...nextBatch]);
+    setPage(nextPage);
+    setHasMore(end < photos.length);
+    setLoadingMore(false);
   }, [photos, page, hasMore, loadingMore]);
 
-  // Intersection Observer for infinite scroll
   useEffect(() => {
     if (!loadMoreRef.current) return;
     
@@ -133,98 +113,80 @@ function ImageGallery() {
 
   const handleSearch = async (criteria) => {
     try {
-      setLoading(true)
-      setSearchCriteria(criteria)
-      const data = await searchPhotos(criteria)
-      setPhotos(data)
+      setLoading(true);
+      setSearchCriteria(criteria);
+      const data = await searchPhotos(criteria);
+      setPhotos(data);
       
       // Reset pagination
-      setPage(1)
-      const initialPhotos = data.slice(0, IMAGES_PER_PAGE)
-      setVisiblePhotos(initialPhotos)
-      setHasMore(data.length > IMAGES_PER_PAGE)
+      setPage(1);
+      const initialPhotos = data.slice(0, IMAGES_PER_PAGE);
+      setVisiblePhotos(initialPhotos);
+      setHasMore(data.length > IMAGES_PER_PAGE);
     } catch (error) {
-      console.error('Error searching photos:', error)
+      console.error('Error searching photos:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to search photos',
+        status: 'error',
+        duration: 5000,
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const handlePhotoClick = (photo) => {
-    setSelectedPhoto(photo)
-    setFullResImageLoading(true)
-    onModalOpen()
-  }
-
-  const formatDateTime = (dateTimeStr) => {
-    if (!dateTimeStr) return '';
-    const date = new Date(dateTimeStr);
-    return date.toLocaleString();
   };
 
-  const handleDeletePhoto = async (photo, e) => {
-    if (e) e.stopPropagation()
+  const handlePhotoClick = (photo) => {
+    setSelectedPhoto(photo);
+    onOpen();
+  };
 
-    if (!window.confirm('Are you sure you want to delete this photo?')) {
-      return
-    }
-
+  const handleDeletePhoto = async (photo) => {
     try {
-      await deletePhoto(photo._id)
+      await deletePhoto(photo._id);
       toast({
-        title: 'Photo deleted successfully',
+        title: 'Success',
+        description: 'Photo deleted successfully',
         status: 'success',
         duration: 3000,
-      })
-      loadPhotos()
+      });
+      // Refresh photos
+      if (searchCriteria) {
+        handleSearch(searchCriteria);
+      } else {
+        loadInitialPhotos();
+      }
     } catch (error) {
+      console.error('Error deleting photo:', error);
       toast({
-        title: error.response?.data?.error || 'Error deleting photo',
+        title: 'Error',
+        description: 'Failed to delete photo',
         status: 'error',
-        duration: 3000,
-      })
+        duration: 5000,
+      });
     }
-  }
+  };
 
-  const handleEditClick = (photo, e) => {
-    if (e) e.stopPropagation() // Prevent opening the modal
-    setEditingPhoto(photo)
-    onEditModalOpen()
-  }
+  const handleEditClick = (photo) => {
+    setSelectedPhoto(photo);
+    setIsEditing(true);
+  };
 
-  const handleEditSuccess = () => {
-    loadPhotos() // Refresh the gallery
-  }
-
-  const renderPhotoActions = (photo) => {
-    if (!isAdmin) return null;  // Don't show actions for non-admins
-    
-    return (
-      <HStack spacing={2}>
-        <IconButton
-          icon={<FiEdit2 />}
-          aria-label="Edit photo"
-          variant="ghost"
-          colorScheme="green"
-          size="sm"
-          onClick={(e) => handleEditClick(photo, e)}
-        />
-        <IconButton
-          icon={<FiTrash2 />}
-          aria-label="Delete photo"
-          variant="ghost"
-          colorScheme="red"
-          size="sm"
-          onClick={(e) => handleDeletePhoto(photo, e)}
-        />
-      </HStack>
-    )
-  }
+  const onEditSuccess = () => {
+    setIsEditing(false);
+    // Refresh photos
+    if (searchCriteria) {
+      handleSearch(searchCriteria);
+    } else {
+      loadInitialPhotos();
+    }
+  };
 
   return (
-    <VStack spacing={8} align="stretch">
+    <Box>
       <Box 
-        bgGradient="linear(to-r, green.50, green.100)" 
+        bg="white" 
+        mb={8} 
         py={8} 
         px={4} 
         borderRadius="xl"
@@ -262,13 +224,13 @@ function ImageGallery() {
             <Skeleton 
               key={i} 
               height="300px" 
-              borderRadius="xl" 
+              borderRadius="xl"
               startColor="green.50"
               endColor="green.100"
             />
           ))
         ) : visiblePhotos.length > 0 ? (
-          visiblePhotos.map((photo, index) => (
+          visiblePhotos.map((photo) => (
             <Box
               key={photo._id}
               position="relative"
@@ -285,293 +247,251 @@ function ImageGallery() {
               }}
             >
               <OptimizedImage
-                src={getPhotoUrl(photo)}
+                src={photo.storage?.url || photo.url}
                 alt={photo.tags?.species || photo.filename}
                 objectFit="cover"
                 width="100%"
                 height="300px"
                 borderRadius="xl"
-                priority={index < 4} // First four images load with higher priority
-                quality={75} // Slightly reduce quality for thumbnails to improve speed
+                priority={false}
               />
-              <Flex
+              <Box
                 className="overlay"
                 position="absolute"
                 top={0}
                 left={0}
                 right={0}
                 bottom={0}
-                bgGradient="linear(to-t, blackAlpha.800, blackAlpha.400)"
+                bg="blackAlpha.600"
                 opacity={0}
-                transition="all 0.3s"
-                flexDirection="column"
-                justify="flex-end"
+                transition="opacity 0.3s"
                 p={4}
+                display="flex"
+                flexDirection="column"
+                justifyContent="flex-end"
               >
-                <HStack justify="space-between" w="100%" mb={2}>
-                  <Text color="white" fontSize="lg" fontWeight="bold">
-                    {photo.tags?.species || 'Unnamed Bird'}
-                  </Text>
-                  <Box
-                    position="absolute"
-                    top={2}
-                    right={2}
-                    bg="blackAlpha.600"
-                    borderRadius="md"
-                    p={1}
-                    opacity={0}
-                    _groupHover={{ opacity: 1 }}
-                    transition="all 0.2s"
-                  >
-                    {renderPhotoActions(photo)}
-                  </Box>
-                </HStack>
-                <HStack spacing={4}>
-                  {photo.tags?.location && (
-                    <HStack color="white">
-                      <FiMapPin />
-                      <Text fontSize="sm">{photo.tags.location}</Text>
-                    </HStack>
-                  )}
+                <VStack align="stretch" spacing={2}>
                   {photo.tags?.date_clicked && (
-                    <HStack color="white">
-                      <FiCalendar />
-                      <Text fontSize="sm">
+                    <HStack spacing={2}>
+                      <FiCalendar color="white" />
+                      <Text color="white" fontSize="sm">
                         {new Date(photo.tags.date_clicked).toLocaleDateString()}
                       </Text>
                     </HStack>
                   )}
-                </HStack>
-              </Flex>
+                  {photo.tags?.location && (
+                    <HStack spacing={2}>
+                      <FiMapPin color="white" />
+                      <Text color="white" fontSize="sm">
+                        {photo.tags.location}
+                      </Text>
+                    </HStack>
+                  )}
+                </VStack>
+              </Box>
             </Box>
           ))
         ) : (
-          <Box 
+          <Text 
             gridColumn="1/-1" 
             textAlign="center" 
-            py={10}
             color="gray.500"
+            fontSize="lg"
           >
-            <Text fontSize="lg">No photos found</Text>
-          </Box>
+            No photos found
+          </Text>
         )}
       </SimpleGrid>
 
-      {/* Load more / infinite scroll trigger */}
-      {!loading && hasMore && (
-        <Box ref={loadMoreRef} textAlign="center" py={8}>
-          {loadingMore ? (
-            <Spinner color="green.500" size="md" />
-          ) : (
-            <Button
-              variant="ghost"
-              colorScheme="green"
-              rightIcon={<FiChevronDown />}
-              onClick={loadMorePhotos}
-              isLoading={loadingMore}
-            >
-              Load more photos
-            </Button>
-          )}
-        </Box>
+      {hasMore && !loading && (
+        <Box ref={loadMoreRef} h="20px" mt={8} />
       )}
 
+      {/* Photo Detail Modal */}
       <Modal 
-        isOpen={isModalOpen} 
-        onClose={onModalClose} 
-        size="4xl"
-        motionPreset="slideInBottom"
+        isOpen={isOpen && selectedPhoto} 
+        onClose={onClose} 
+        size="6xl"
+        isCentered
       >
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent 
-          bg={useColorModeValue('white', 'gray.800')}
-          borderRadius="2xl"
-          overflow="hidden"
-        >
+        <ModalOverlay />
+        <ModalContent bg="transparent" boxShadow="none">
           <ModalCloseButton 
-            size="lg"
-            color="white"
-            top={4}
-            right={4}
-            zIndex={2}
+            color="white" 
+            bg="blackAlpha.600"
+            _hover={{ bg: 'blackAlpha.700' }}
           />
           <ModalBody p={0}>
-            {selectedPhoto && (
-              <VStack spacing={0}>
-                <Box
-                  position="relative"
-                  w="100%"
-                  bg="black"
-                  minHeight="50vh"
+            <Box 
+              bg="white" 
+              borderRadius="xl" 
+              overflow="hidden"
+              position="relative"
+            >
+              <Flex 
+                position="absolute" 
+                top={4} 
+                right={4} 
+                gap={2}
+                zIndex={2}
+              >
+                {user?.is_admin && (
+                  <>
+                    <IconButton
+                      icon={<FiEdit2 />}
+                      size="md"
+                      colorScheme="blue"
+                      variant="solid"
+                      bg="blackAlpha.600"
+                      _hover={{ bg: 'blue.500' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                        handleEditClick(selectedPhoto);
+                      }}
+                    />
+                    <IconButton
+                      icon={<FiTrash2 />}
+                      size="md"
+                      colorScheme="red"
+                      variant="solid"
+                      bg="blackAlpha.600"
+                      _hover={{ bg: 'red.500' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                        deleteAlertDisclosure.onOpen();
+                      }}
+                    />
+                  </>
+                )}
+                {selectedPhoto && (
+                  <Tooltip label="Download original">
+                    <IconButton
+                      as={Link}
+                      href={selectedPhoto.storage?.url || selectedPhoto.url}
+                      download
+                      icon={<FiDownload />}
+                      size="md"
+                      colorScheme="green"
+                      variant="solid"
+                      bg="blackAlpha.600"
+                      _hover={{ bg: 'green.500' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Tooltip>
+                )}
+              </Flex>
+              
+              <OptimizedImage
+                src={selectedPhoto?.storage?.url || selectedPhoto?.url}
+                alt={selectedPhoto?.tags?.species || selectedPhoto?.filename}
+                objectFit="contain"
+                width="100%"
+                height="70vh"
+                priority={true}
+              />
+
+              <VStack 
+                align="stretch" 
+                w="100%" 
+                p={6} 
+                spacing={4}
+                bg="green.50"
+              >
+                <Heading 
+                  size="lg" 
+                  color="green.800"
+                  fontFamily="'Playfair Display', serif"
                 >
-                  {/* Controls overlay */}
-                  <Flex
-                    position="absolute"
-                    top={4}
-                    right={16}
-                    zIndex={1}
-                    gap={2}
-                  >
-                    {/* Download button for full resolution image */}
-                    <Tooltip label="Right-click to save image" placement="top">
-                      <IconButton
-                        as={Link}
-                        href={getPhotoUrl(selectedPhoto)}
-                        target="_blank"
-                        icon={<FiDownload />}
-                        size="md"
-                        colorScheme="green"
-                        variant="solid"
-                        bg="blackAlpha.600"
-                        _hover={{ bg: 'green.500' }}
-                        aria-label="Download full resolution"
-                        download={selectedPhoto.filename || "bird-image"}
-                      />
-                    </Tooltip>
-                    
-                    {isAdmin && (
-                      <>
-                        <IconButton
-                          icon={<FiEdit2 />}
-                          size="md"
-                          colorScheme="blue"
-                          variant="solid"
-                          bg="blackAlpha.600"
-                          _hover={{ bg: 'blue.500' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onModalClose()
-                            handleEditClick(selectedPhoto, e)
-                          }}
-                        />
-                        <IconButton
-                          icon={<FiTrash2 />}
-                          size="md"
-                          colorScheme="red"
-                          variant="solid"
-                          bg="blackAlpha.600"
-                          _hover={{ bg: 'red.500' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onModalClose()
-                            handleDeletePhoto(selectedPhoto, e)
-                          }}
-                        />
-                      </>
-                    )}
-                  </Flex>
-                  
-                  {/* Full resolution image with our optimizer component */}
-                  {fullResImageLoading && (
-                    <Flex 
-                      position="absolute"
-                      top={0}
-                      left={0}
-                      right={0}
-                      bottom={0}
-                      align="center"
-                      justify="center"
-                    >
-                      <Spinner color="white" size="xl" />
-                    </Flex>
-                  )}
-                  
-                  <OptimizedImage
-                    src={getPhotoUrl(selectedPhoto)}
-                    alt={selectedPhoto.tags?.bird_name || 'Bird photo'}
-                    objectFit="contain"
-                    width="100%"
-                    height="70vh"
-                    onLoad={() => setFullResImageLoading(false)}
-                    opacity={fullResImageLoading ? 0 : 1}
-                    transition="opacity 0.3s ease"
-                    priority={true} // High priority for the selected image view
-                    quality={90} // Higher quality for the enlarged view
-                    format="webp" // Use WebP for best quality/size ratio
-                  />
-                </Box>
-                <VStack 
-                  align="stretch" 
-                  w="100%" 
-                  p={6} 
-                  spacing={4}
-                  bg="green.50"
-                >
-                  <Heading 
-                    size="lg" 
-                    color="green.800"
-                    fontFamily="'Playfair Display', serif"
-                  >
-                    {selectedPhoto.tags.bird_name}
-                  </Heading>
-                  <SimpleGrid columns={[1, 2]} spacing={4}>
-                    {Object.entries(selectedPhoto.tags).map(([key, value]) => {
-                      if (!value || key === 'bird_name') return null;
-                      
-                      const displayKey = dbKeyToDisplay(key)
-                      
-                      return (
-                        <HStack key={key} justify="space-between" p={3} bg="white" borderRadius="lg" shadow="sm">
-                          <Text
-                            fontWeight="medium"
-                            color="green.700"
-                          >
-                            {displayKey}
-                          </Text>
-                          <Badge
-                            colorScheme={key.includes('date') ? 'green' : 'teal'}
-                            fontSize="sm"
-                            px={3}
-                            py={1}
-                            borderRadius="full"
-                          >
-                            {key.includes('date') ? formatDateTime(value) : value}
-                          </Badge>
-                        </HStack>
-                      )
-                    })}
-                  </SimpleGrid>
-                  
-                  {/* Download information text */}
-                  <Text 
-                    fontSize="sm" 
-                    color="gray.500" 
-                    textAlign="center"
-                    mt={2}
-                  >
-                    Right-click on image and select "Save image as..." to download full resolution photo
-                  </Text>
-                </VStack>
+                  {selectedPhoto?.tags?.species || 'Unknown Species'}
+                </Heading>
+
+                <SimpleGrid columns={[1, 2, 3]} spacing={4}>
+                  {selectedPhoto?.tags && Object.entries(selectedPhoto.tags)
+                    .map(([key, value]) => (
+                      <HStack key={key} justify="space-between">
+                        <Text color="green.700" fontWeight="medium">
+                          {dbKeyToDisplay(key)}:
+                        </Text>
+                        <Badge colorScheme="green">
+                          {key.includes('date') 
+                            ? new Date(value).toLocaleDateString()
+                            : value}
+                        </Badge>
+                      </HStack>
+                    ))}
+                </SimpleGrid>
               </VStack>
-            )}
+            </Box>
           </ModalBody>
         </ModalContent>
       </Modal>
 
-      {editingPhoto && (
-        <EditPhotoForm
-          photo={editingPhoto}
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            onEditModalClose()
-            setEditingPhoto(null)
-          }}
-          onSuccess={handleEditSuccess}
-        />
-      )}
+      {/* Edit Form Modal */}
+      <Modal 
+        isOpen={isEditing} 
+        onClose={() => setIsEditing(false)}
+        size="2xl"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalCloseButton />
+          <ModalBody p={6}>
+            <EditPhotoForm
+              photo={selectedPhoto}
+              onSuccess={onEditSuccess}
+              onCancel={() => setIsEditing(false)}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
-      {isAdmin && (
-        <AlertDialog
-          isOpen={isDeleteAlertOpen}
-          leastDestructiveRef={cancelRef}
-          onClose={onDeleteAlertClose}
-        >
-          <AlertDialogOverlay />
-          {/* Delete confirmation dialog content */}
-        </AlertDialog>
-      )}
-    </VStack>
-  )
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={deleteAlertDisclosure.isOpen}
+        leastDestructiveRef={cancelDeleteRef}
+        onClose={deleteAlertDisclosure.onClose}
+      >
+        <AlertDialogOverlay>
+          <Box maxW="lg" mx="auto" mt={40}>
+            <VStack
+              bg="white"
+              p={6}
+              borderRadius="xl"
+              spacing={4}
+              align="stretch"
+            >
+              <Heading size="md" color="red.500">
+                Delete Photo
+              </Heading>
+              <Text>
+                Are you sure you want to delete this photo? 
+                This action cannot be undone.
+              </Text>
+              <HStack justify="flex-end" spacing={4}>
+                <Button
+                  ref={cancelDeleteRef}
+                  onClick={deleteAlertDisclosure.onClose}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  colorScheme="red"
+                  onClick={() => {
+                    handleDeletePhoto(selectedPhoto);
+                    deleteAlertDisclosure.onClose();
+                  }}
+                >
+                  Delete
+                </Button>
+              </HStack>
+            </VStack>
+          </Box>
+        </AlertDialogOverlay>
+      </AlertDialog>
+    </Box>
+  );
 }
 
-export default ImageGallery
+export default ImageGallery;
