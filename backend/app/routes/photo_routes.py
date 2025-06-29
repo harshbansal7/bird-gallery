@@ -100,7 +100,7 @@ def upload_photo():
 
 @photo_bp.route('/', methods=['GET'])
 def get_photos():
-    photos = list(mongo.db.photos.find())
+    photos = list(mongo.db.photos.find().sort('created_at', -1))
     return jsonify([Photo.from_dict(photo).to_dict() for photo in photos]), 200 
 
 @photo_bp.route('/search', methods=['POST'])

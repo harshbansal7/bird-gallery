@@ -2,11 +2,11 @@ from datetime import datetime
 from bson import ObjectId
 
 class Photo:
-    def __init__(self, filename, tags, photo_id=None, fivemerr_data=None, storage=None):
+    def __init__(self, filename, tags, photo_id=None, fivemerr_data=None, storage=None, created_at=None):
         self.id = photo_id or str(ObjectId())
         self.filename = filename
         self.tags = tags
-        self.created_at = datetime.utcnow()
+        self.created_at = created_at or datetime.utcnow()
         
         # Support both the new storage format and legacy fivemerr_data format
         self.storage = storage or {}
@@ -55,7 +55,8 @@ class Photo:
                 filename=data['filename'],
                 tags=data['tags'],
                 photo_id=str(data['_id']),
-                storage=data['storage']
+                storage=data['storage'],
+                created_at=data.get('created_at')
             )
             
         # Case 2: Legacy format with separate fields
@@ -72,5 +73,6 @@ class Photo:
                 filename=data['filename'],
                 tags=data['tags'],
                 photo_id=str(data['_id']),
-                storage=storage
+                storage=storage,
+                created_at=data.get('created_at')
             )
