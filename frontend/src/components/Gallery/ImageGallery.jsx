@@ -23,7 +23,7 @@ import {
   Link,
   Tooltip,
 } from '@chakra-ui/react'
-import { FiCalendar, FiMapPin, FiTrash2, FiEdit2, FiDownload } from 'react-icons/fi'
+import { FiCalendar, FiMapPin, FiTrash2, FiEdit2, FiDownload, FiFeather } from 'react-icons/fi'
 import { getAllPhotos, searchPhotos, deletePhoto } from '../../services/api'
 import SearchBar from './SearchBar'
 import { dbKeyToDisplay } from '../../utils/tagUtils'
@@ -77,13 +77,13 @@ function ImageGallery() {
 
   const loadMorePhotos = useCallback(() => {
     if (!hasMore || loadingMore) return;
-    
+
     setLoadingMore(true);
     const nextPage = page + 1;
     const start = (nextPage - 1) * IMAGES_PER_PAGE;
     const end = nextPage * IMAGES_PER_PAGE;
     const nextBatch = photos.slice(start, end);
-    
+
     setVisiblePhotos(prev => [...prev, ...nextBatch]);
     setPage(nextPage);
     setHasMore(end < photos.length);
@@ -92,7 +92,7 @@ function ImageGallery() {
 
   useEffect(() => {
     if (!loadMoreRef.current) return;
-    
+
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !loadingMore) {
@@ -101,9 +101,9 @@ function ImageGallery() {
       },
       { threshold: 0.1 }
     );
-    
+
     observer.observe(loadMoreRef.current);
-    
+
     return () => {
       if (loadMoreRef.current) {
         observer.unobserve(loadMoreRef.current);
@@ -117,7 +117,7 @@ function ImageGallery() {
       setSearchCriteria(criteria);
       const data = await searchPhotos(criteria);
       setPhotos(data);
-      
+
       // Reset pagination
       setPage(1);
       const initialPhotos = data.slice(0, IMAGES_PER_PAGE);
@@ -184,26 +184,26 @@ function ImageGallery() {
 
   return (
     <Box>
-      <Box 
-        bg="white" 
-        mb={8} 
-        py={8} 
-        px={4} 
+      <Box
+        bg="white"
+        mb={8}
+        py={8}
+        px={4}
         borderRadius="xl"
         boxShadow="sm"
       >
-        <Heading 
-          size="xl" 
-          color="green.800" 
+        <Heading
+          size="xl"
+          color="green.800"
           mb={2}
           textAlign="center"
           fontFamily="'Playfair Display', serif"
         >
           Bird Gallery
         </Heading>
-        <Text 
-          color="green.600" 
-          textAlign="center" 
+        <Text
+          color="green.600"
+          textAlign="center"
           fontSize="lg"
           fontStyle="italic"
           mb={6}
@@ -213,17 +213,17 @@ function ImageGallery() {
         <SearchBar onSearch={handleSearch} />
       </Box>
 
-      <SimpleGrid 
-        columns={[1, 2, 3, 4]} 
-        spacing={6} 
+      <SimpleGrid
+        columns={[1, 2, 3, 4]}
+        spacing={6}
         px={4}
         position="relative"
       >
         {loading ? (
           Array(8).fill(0).map((_, i) => (
-            <Skeleton 
-              key={i} 
-              height="300px" 
+            <Skeleton
+              key={i}
+              height="300px"
               borderRadius="xl"
               startColor="green.50"
               endColor="green.100"
@@ -271,6 +271,14 @@ function ImageGallery() {
                 justifyContent="flex-end"
               >
                 <VStack align="stretch" spacing={2}>
+                  {photo.tags?.species && (
+                    <HStack spacing={2}>
+                      <FiFeather color="white" />
+                      <Text color="white" fontSize="sm" fontWeight="semibold">
+                        {photo.tags.species}
+                      </Text>
+                    </HStack>
+                  )}
                   {photo.tags?.date_clicked && (
                     <HStack spacing={2}>
                       <FiCalendar color="white" />
@@ -292,9 +300,9 @@ function ImageGallery() {
             </Box>
           ))
         ) : (
-          <Text 
-            gridColumn="1/-1" 
-            textAlign="center" 
+          <Text
+            gridColumn="1/-1"
+            textAlign="center"
             color="gray.500"
             fontSize="lg"
           >
@@ -308,25 +316,25 @@ function ImageGallery() {
       )}
 
       {/* Photo Detail Modal */}
-      <Modal 
-        isOpen={isOpen && selectedPhoto} 
-        onClose={onClose} 
+      <Modal
+        isOpen={isOpen && selectedPhoto}
+        onClose={onClose}
         size="6xl"
         isCentered
       >
         <ModalOverlay />
         <ModalContent bg="transparent" boxShadow="none">
           <ModalBody p={0}>
-            <Box 
-              bg="white" 
-              borderRadius="xl" 
+            <Box
+              bg="white"
+              borderRadius="xl"
               overflow="hidden"
               position="relative"
             >
-              <Flex 
-                position="absolute" 
-                top={4} 
-                right={4} 
+              <Flex
+                position="absolute"
+                top={4}
+                right={4}
                 gap={2}
                 zIndex={2}
               >
@@ -392,7 +400,7 @@ function ImageGallery() {
                   </>
                 )}
               </Flex>
-              
+
               <OptimizedImage
                 src={selectedPhoto?.storage?.url || selectedPhoto?.url}
                 alt={selectedPhoto?.tags?.species || selectedPhoto?.filename}
@@ -402,15 +410,15 @@ function ImageGallery() {
                 priority={true}
               />
 
-              <VStack 
-                align="stretch" 
-                w="100%" 
-                p={6} 
+              <VStack
+                align="stretch"
+                w="100%"
+                p={6}
                 spacing={4}
                 bg="green.50"
               >
-                <Heading 
-                  size="lg" 
+                <Heading
+                  size="lg"
                   color="green.800"
                   fontFamily="'Playfair Display', serif"
                 >
@@ -425,7 +433,7 @@ function ImageGallery() {
                           {dbKeyToDisplay(key)}:
                         </Text>
                         <Badge colorScheme="green">
-                          {key.includes('date') 
+                          {key.includes('date')
                             ? new Date(value).toLocaleDateString()
                             : value}
                         </Badge>
@@ -465,7 +473,7 @@ function ImageGallery() {
                 Delete Photo
               </Heading>
               <Text>
-                Are you sure you want to delete this photo? 
+                Are you sure you want to delete this photo?
                 This action cannot be undone.
               </Text>
               <HStack justify="flex-end" spacing={4}>
