@@ -16,15 +16,15 @@ import {
   InputGroup,
   InputLeftElement,
 } from '@chakra-ui/react'
-import { 
-  FiFilter, 
-  FiSearch, 
-  FiX, 
-  FiChevronDown, 
+import {
+  FiFilter,
+  FiSearch,
+  FiX,
+  FiChevronDown,
   FiChevronUp,
   FiCalendar,
   FiMapPin,
-  FiTag 
+  FiTag
 } from 'react-icons/fi'
 import { useState, useEffect } from 'react'
 import { getTags, getFilteredValues } from '../../services/api'
@@ -68,10 +68,10 @@ function SearchBar({ onSearch }) {
       [tagName]: value ? [value] : undefined
     }))
 
-    const dependentTags = Object.entries(tags).filter(([_, tagInfo]) => 
-      tagInfo.values.some(v => 
-        typeof v === 'object' && 
-        v.parent_info && 
+    const dependentTags = Object.entries(tags).filter(([_, tagInfo]) =>
+      tagInfo.values.some(v =>
+        typeof v === 'object' &&
+        v.parent_info &&
         Object.keys(v.parent_info).includes(tagName)
       )
     )
@@ -91,11 +91,11 @@ function SearchBar({ onSearch }) {
   const getFilteredSuggestions = async (tagName) => {
     const dbKey = displayToDbKey(tagName)
     const parentFilters = {}
-    
+
     Object.entries(tagDependencies).forEach(([parentTag, parentValue]) => {
-      if (tags[dbKey]?.values.some(v => 
-        typeof v === 'object' && 
-        v.parent_info && 
+      if (tags[dbKey]?.values.some(v =>
+        typeof v === 'object' &&
+        v.parent_info &&
         Object.keys(v.parent_info).includes(displayToDbKey(parentTag))
       )) {
         parentFilters[displayToDbKey(parentTag)] = parentValue
@@ -105,16 +105,20 @@ function SearchBar({ onSearch }) {
     if (Object.keys(parentFilters).length > 0) {
       try {
         const filteredValues = await getFilteredValues(dbKey, parentFilters)
-        return filteredValues
+        // Sort alphabetically (case-insensitive)
+        return filteredValues.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       } catch (error) {
         console.error('Error getting filtered values:', error)
         return []
       }
     }
 
-    return tags[dbKey]?.values.map(v => 
+    // Extract values and sort alphabetically (case-insensitive)
+    const values = tags[dbKey]?.values.map(v =>
       typeof v === 'string' ? v : v.value
     ) || []
+
+    return values.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }
 
   const handleSearch = () => {
@@ -183,7 +187,7 @@ function SearchBar({ onSearch }) {
         return newFilters
       })
     }
-    
+
     setTimeout(handleSearch, 0)
   }
 
@@ -198,10 +202,10 @@ function SearchBar({ onSearch }) {
   }
 
   return (
-    <Box 
-      bg="white" 
-      p={6} 
-      borderRadius="xl" 
+    <Box
+      bg="white"
+      p={6}
+      borderRadius="xl"
       shadow="sm"
       border="1px"
       borderColor="green.100"
@@ -264,17 +268,17 @@ function SearchBar({ onSearch }) {
         )}
 
         <Collapse in={isOpen}>
-          <VStack 
-            spacing={6} 
-            align="stretch" 
+          <VStack
+            spacing={6}
+            align="stretch"
             pt={4}
             divider={<Divider borderColor="green.100" />}
           >
             {/* Tag Filters */}
             <Box>
-              <Text 
-                fontSize="sm" 
-                fontWeight="medium" 
+              <Text
+                fontSize="sm"
+                fontWeight="medium"
                 color="green.800"
                 mb={4}
                 display="flex"
@@ -286,9 +290,9 @@ function SearchBar({ onSearch }) {
               <SimpleGrid columns={[1, 2, 3]} spacing={4}>
                 {Object.entries(tags).map(([tagName, tagInfo]) => (
                   <Box key={tagName}>
-                    <Text 
-                      mb={2} 
-                      fontSize="sm" 
+                    <Text
+                      mb={2}
+                      fontSize="sm"
                       color="gray.600"
                       fontWeight="medium"
                     >
@@ -301,10 +305,10 @@ function SearchBar({ onSearch }) {
                       placeholder={`Enter ${tagInfo.displayName}`}
                       name={tagName}
                       isDisabled={
-                        tagInfo.values.some(v => 
-                          typeof v === 'object' && 
-                          v.parent_info && 
-                          Object.entries(v.parent_info).some(([parentTag]) => 
+                        tagInfo.values.some(v =>
+                          typeof v === 'object' &&
+                          v.parent_info &&
+                          Object.entries(v.parent_info).some(([parentTag]) =>
                             !tagDependencies[parentTag]
                           )
                         )
@@ -321,9 +325,9 @@ function SearchBar({ onSearch }) {
 
             {/* Date Filters */}
             <Box>
-              <Text 
-                fontSize="sm" 
-                fontWeight="medium" 
+              <Text
+                fontSize="sm"
+                fontWeight="medium"
                 color="green.800"
                 mb={4}
                 display="flex"
