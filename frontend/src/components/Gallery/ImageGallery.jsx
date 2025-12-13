@@ -268,17 +268,20 @@ function ImageGallery() {
                 p={4}
                 display="flex"
                 flexDirection="column"
-                justifyContent="flex-end"
+                justifyContent="space-between"
               >
+                {/* Species name - Top Right */}
+                {photo.tags?.species && (
+                  <HStack spacing={2} justify="flex-end">
+                    <FiFeather color="white" />
+                    <Text color="white" fontSize="sm" fontWeight="semibold">
+                      {photo.tags.species}
+                    </Text>
+                  </HStack>
+                )}
+
+                {/* Date and Location - Bottom Left */}
                 <VStack align="stretch" spacing={2}>
-                  {photo.tags?.species && (
-                    <HStack spacing={2}>
-                      <FiFeather color="white" />
-                      <Text color="white" fontSize="sm" fontWeight="semibold">
-                        {photo.tags.species}
-                      </Text>
-                    </HStack>
-                  )}
                   {photo.tags?.date_clicked && (
                     <HStack spacing={2}>
                       <FiCalendar color="white" />
