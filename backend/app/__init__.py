@@ -36,9 +36,9 @@ def create_app():
         # Index for creation date
         mongo.db.photos.create_index('created_at')
         
-        # Run database migrations
-        from app.utils.db_migrate import run_migrations
-        run_migrations()
+        # Note: Database migrations disabled - run manually if needed
+        # from app.utils.db_migrate import run_migrations
+        # run_migrations()
     
     # Register blueprints
     from app.routes.photo_routes import photo_bp
@@ -76,20 +76,25 @@ def create_app():
                 upsert=True
             )
     
-    # Configure logging
-    if not os.path.exists('logs'):
-        os.mkdir('logs')
+    # Configure logging (with fallback for read-only filesystems like Vercel)
+    try:
+        if not os.path.exists('logs'):
+            os.mkdir('logs')
+        
+        file_handler = RotatingFileHandler(
+            'logs/bird_gallery.log', 
+            maxBytes=10240, 
+            backupCount=10
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+    except OSError:
+        # On read-only filesystems (e.g., Vercel), skip file logging
+        pass
     
-    file_handler = RotatingFileHandler(
-        'logs/bird_gallery.log', 
-        maxBytes=10240, 
-        backupCount=10
-    )
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
     app.logger.info('Bird Gallery startup')
     

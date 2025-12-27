@@ -26,8 +26,18 @@ _cache_lock = threading.Lock()
 _MAX_CACHE_SIZE = 50  # Maximum number of items in cache
 
 # Cache directory for storing optimized images on disk
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
-if not os.path.exists(CACHE_DIR):
+# Use /tmp on serverless platforms (Vercel) since app directory is read-only
+if os.environ.get('VERCEL'):
+    CACHE_DIR = '/tmp/cache'
+else:
+    CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
+
+try:
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
+except OSError:
+    # Fallback to /tmp if local cache fails
+    CACHE_DIR = '/tmp/cache'
     os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Function to manage the in-memory cache
