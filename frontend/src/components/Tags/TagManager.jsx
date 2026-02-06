@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   VStack,
   Box,
@@ -29,171 +29,179 @@ import {
   Icon,
   Select,
   Stack,
-} from '@chakra-ui/react'
-import { 
-  FiPlus, 
-  FiTrash2, 
-  FiTag, 
+} from "@chakra-ui/react";
+import {
+  FiPlus,
+  FiTrash2,
+  FiTag,
   FiEdit2,
   FiFeather,
   FiX,
   FiHash,
   FiArrowRight,
-  FiLink
-} from 'react-icons/fi'
-import { getTags, addTagValue, createTag, deleteTag, deleteTagValue } from '../../services/api'
-import { dbKeyToDisplay, displayToDbKey } from '../../utils/tagUtils'
+  FiLink,
+} from "react-icons/fi";
+import {
+  getTags,
+  addTagValue,
+  createTag,
+  deleteTag,
+  deleteTagValue,
+} from "../../services/api";
+import { dbKeyToDisplay, displayToDbKey } from "../../utils/tagUtils";
 
 function TagManager() {
-  const [tags, setTags] = useState([])
-  const [newValues, setNewValues] = useState({})
-  const [newTagName, setNewTagName] = useState('')
-  const toast = useToast()
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const [selectedParent, setSelectedParent] = useState({})
+  const [tags, setTags] = useState([]);
+  const [newValues, setNewValues] = useState({});
+  const [newTagName, setNewTagName] = useState("");
+  const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [selectedParent, setSelectedParent] = useState({});
 
   useEffect(() => {
-    loadTags()
-  }, [])
+    loadTags();
+  }, []);
 
   const loadTags = async () => {
     try {
-      const tagsData = await getTags()
-      setTags(tagsData)
+      const tagsData = await getTags();
+      setTags(tagsData);
       const initialNewValues = tagsData.reduce((acc, tag) => {
-        acc[tag.name] = ''
-        return acc
-      }, {})
-      setNewValues(initialNewValues)
+        acc[tag.name] = "";
+        return acc;
+      }, {});
+      setNewValues(initialNewValues);
     } catch (error) {
       toast({
-        title: 'Error loading tags',
-        status: 'error',
+        title: "Error loading tags",
+        status: "error",
         duration: 3000,
-      })
+      });
     }
-  }
+  };
 
   const handleAddTag = async () => {
     if (!newTagName.trim()) {
       toast({
-        title: 'Tag name is required',
-        status: 'error',
+        title: "Tag name is required",
+        status: "error",
         duration: 3000,
-      })
-      return
+      });
+      return;
     }
 
     try {
-      const displayName = newTagName.trim()
-      const dbKey = displayToDbKey(displayName)
-      
-      console.log('Creating tag with name:', dbKey)
-      
-      await createTag({ name: dbKey })
+      const displayName = newTagName.trim();
+      const dbKey = displayToDbKey(displayName);
+
+      console.log("Creating tag with name:", dbKey);
+
+      await createTag({ name: dbKey });
       toast({
-        title: 'Tag created successfully',
-        status: 'success',
+        title: "Tag created successfully",
+        status: "success",
         duration: 3000,
-      })
-      setNewTagName('')
-      onClose()
-      loadTags()
+      });
+      setNewTagName("");
+      onClose();
+      loadTags();
     } catch (error) {
-      console.error('Error creating tag:', error)
+      console.error("Error creating tag:", error);
       toast({
-        title: error.response?.data?.error || 'Error creating tag',
-        status: 'error',
+        title: error.response?.data?.error || "Error creating tag",
+        status: "error",
         duration: 3000,
-      })
+      });
     }
-  }
+  };
 
   const handleDeleteTag = async (tagName) => {
     try {
-      await deleteTag(tagName)
+      await deleteTag(tagName);
       toast({
-        title: 'Tag deleted successfully',
-        status: 'success',
+        title: "Tag deleted successfully",
+        status: "success",
         duration: 3000,
-      })
-      loadTags()
+      });
+      loadTags();
     } catch (error) {
       toast({
-        title: 'Error deleting tag',
-        status: 'error',
+        title: "Error deleting tag",
+        status: "error",
         duration: 3000,
-      })
+      });
     }
-  }
+  };
 
   const handleAddValue = async (tagName) => {
-    const value = newValues[tagName]?.trim()
-    if (!value) return
+    const value = newValues[tagName]?.trim();
+    if (!value) return;
 
     try {
-      const parentInfo = selectedParent[tagName] ? {
-        [selectedParent[tagName].tag]: selectedParent[tagName].value
-      } : null
+      const parentInfo = selectedParent[tagName]
+        ? {
+            [selectedParent[tagName].tag]: selectedParent[tagName].value,
+          }
+        : null;
 
-      await addTagValue(tagName, value, parentInfo)
+      await addTagValue(tagName, value, parentInfo);
       toast({
-        title: 'Value added successfully',
-        status: 'success',
+        title: "Value added successfully",
+        status: "success",
         duration: 3000,
-      })
-      loadTags()
-      setNewValues(prev => ({ ...prev, [tagName]: '' }))
-      setSelectedParent(prev => ({ ...prev, [tagName]: null }))
+      });
+      loadTags();
+      setNewValues((prev) => ({ ...prev, [tagName]: "" }));
+      setSelectedParent((prev) => ({ ...prev, [tagName]: null }));
     } catch (error) {
       toast({
-        title: error.response?.data?.error || 'Error adding value',
-        status: 'error',
+        title: error.response?.data?.error || "Error adding value",
+        status: "error",
         duration: 3000,
-      })
+      });
     }
-  }
+  };
 
   const handleDeleteValue = async (tagName, value) => {
-    console.log('Deleting value:', { tagName, value });
+    console.log("Deleting value:", { tagName, value });
     try {
-      await deleteTagValue(tagName, value)
+      await deleteTagValue(tagName, value);
       toast({
-        title: 'Value deleted successfully',
-        status: 'success',
+        title: "Value deleted successfully",
+        status: "success",
         duration: 3000,
-      })
-      loadTags()
+      });
+      loadTags();
     } catch (error) {
       toast({
-        title: 'Error deleting value',
-        status: 'error',
+        title: "Error deleting value",
+        status: "error",
         duration: 3000,
-      })
+      });
     }
-  }
+  };
 
   return (
     <VStack spacing={8} align="stretch">
-      <Box 
-        bgGradient="linear(to-r, green.50, green.100)" 
-        py={8} 
-        px={6} 
+      <Box
+        bgGradient="linear(to-r, green.50, green.100)"
+        py={8}
+        px={6}
         borderRadius="xl"
         boxShadow="sm"
       >
-        <Heading 
-          size="xl" 
-          color="green.800" 
+        <Heading
+          size="xl"
+          color="green.800"
           mb={2}
           textAlign="center"
           fontFamily="'Playfair Display', serif"
         >
           Tag Management
         </Heading>
-        <Text 
-          color="green.600" 
-          textAlign="center" 
+        <Text
+          color="green.600"
+          textAlign="center"
           fontSize="lg"
           fontStyle="italic"
           mb={6}
@@ -207,7 +215,7 @@ function TagManager() {
             onClick={onOpen}
             size="lg"
             px={8}
-            _hover={{ transform: 'translateY(-2px)' }}
+            _hover={{ transform: "translateY(-2px)" }}
             transition="all 0.2s"
           >
             Create New Tag
@@ -227,16 +235,12 @@ function TagManager() {
             borderColor="green.100"
             position="relative"
             transition="all 0.2s"
-            _hover={{ shadow: 'md', borderColor: 'green.200' }}
+            _hover={{ shadow: "md", borderColor: "green.200" }}
           >
             <Flex justify="space-between" align="center" mb={4}>
               <HStack spacing={2}>
                 <Icon as={FiTag} color="green.500" />
-                <Heading 
-                  size="md" 
-                  color="green.800"
-                  fontWeight="semibold"
-                >
+                <Heading size="md" color="green.800" fontWeight="semibold">
                   {dbKeyToDisplay(tag.name)}
                 </Heading>
               </HStack>
@@ -247,33 +251,35 @@ function TagManager() {
                   colorScheme="red"
                   variant="ghost"
                   onClick={() => handleDeleteTag(tag.name)}
-                  _hover={{ bg: 'red.50' }}
+                  _hover={{ bg: "red.50" }}
                 />
               </Tooltip>
             </Flex>
 
-            <Box 
-              mb={4} 
-              minH="100px" 
-              maxH="200px" 
+            <Box
+              mb={4}
+              minH="100px"
+              maxH="200px"
               overflowY="auto"
               css={{
-                '&::-webkit-scrollbar': {
-                  width: '4px',
+                "&::-webkit-scrollbar": {
+                  width: "4px",
                 },
-                '&::-webkit-scrollbar-track': {
-                  background: 'var(--chakra-colors-green-50)',
+                "&::-webkit-scrollbar-track": {
+                  background: "var(--chakra-colors-green-50)",
                 },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'var(--chakra-colors-green-200)',
-                  borderRadius: '4px',
+                "&::-webkit-scrollbar-thumb": {
+                  background: "var(--chakra-colors-green-200)",
+                  borderRadius: "4px",
                 },
               }}
             >
               {tag.values.map((valueObj) => {
-                const value = typeof valueObj === 'string' ? valueObj : valueObj.value;
-                const parentInfo = typeof valueObj === 'object' ? valueObj.parent_info : null;
-                
+                const value =
+                  typeof valueObj === "string" ? valueObj : valueObj.value;
+                const parentInfo =
+                  typeof valueObj === "object" ? valueObj.parent_info : null;
+
                 return (
                   <Badge
                     key={value}
@@ -305,7 +311,7 @@ function TagManager() {
                       ml={2}
                       variant="ghost"
                       color="green.600"
-                      _hover={{ bg: 'green.100' }}
+                      _hover={{ bg: "green.100" }}
                       onClick={() => handleDeleteValue(tag.name, value)}
                     />
                   </Badge>
@@ -317,8 +323,8 @@ function TagManager() {
 
             <VStack spacing={4}>
               <FormControl>
-                <FormLabel 
-                  fontSize="sm" 
+                <FormLabel
+                  fontSize="sm"
                   color="gray.600"
                   display="flex"
                   alignItems="center"
@@ -328,59 +334,82 @@ function TagManager() {
                 </FormLabel>
                 <Select
                   placeholder="Select parent tag"
-                  value={selectedParent[tag.name]?.tag || ''}
+                  value={selectedParent[tag.name]?.tag || ""}
                   onChange={(e) => {
                     if (!e.target.value) {
-                      setSelectedParent(prev => ({ ...prev, [tag.name]: null }))
-                      return
+                      setSelectedParent((prev) => ({
+                        ...prev,
+                        [tag.name]: null,
+                      }));
+                      return;
                     }
-                    setSelectedParent(prev => ({
+                    setSelectedParent((prev) => ({
                       ...prev,
-                      [tag.name]: { tag: e.target.value, value: '' }
-                    }))
+                      [tag.name]: { tag: e.target.value, value: "" },
+                    }));
                   }}
                   size="sm"
                   bg="green.50"
                   borderColor="green.200"
-                  _hover={{ borderColor: 'green.300' }}
-                  _focus={{ borderColor: 'green.400', boxShadow: '0 0 0 1px var(--chakra-colors-green-400)' }}
+                  _hover={{ borderColor: "green.300" }}
+                  _focus={{
+                    borderColor: "green.400",
+                    boxShadow: "0 0 0 1px var(--chakra-colors-green-400)",
+                  }}
                 >
                   {tags
-                    .filter(t => t.name !== tag.name)
-                    .map(t => (
+                    .filter((t) => t.name !== tag.name)
+                    .sort((a, b) =>
+                      dbKeyToDisplay(a.name).localeCompare(
+                        dbKeyToDisplay(b.name),
+                      ),
+                    )
+                    .map((t) => (
                       <option key={t.name} value={t.name}>
                         {dbKeyToDisplay(t.name)}
                       </option>
                     ))}
                 </Select>
-                
+
                 {selectedParent[tag.name]?.tag && (
                   <Select
                     mt={2}
                     placeholder="Select value"
-                    value={selectedParent[tag.name]?.value || ''}
+                    value={selectedParent[tag.name]?.value || ""}
                     onChange={(e) => {
-                      setSelectedParent(prev => ({
+                      setSelectedParent((prev) => ({
                         ...prev,
                         [tag.name]: {
                           ...prev[tag.name],
-                          value: e.target.value
-                        }
-                      }))
+                          value: e.target.value,
+                        },
+                      }));
                     }}
                     size="sm"
                     bg="green.50"
                     borderColor="green.200"
-                    _hover={{ borderColor: 'green.300' }}
-                    _focus={{ borderColor: 'green.400', boxShadow: '0 0 0 1px var(--chakra-colors-green-400)' }}
+                    _hover={{ borderColor: "green.300" }}
+                    _focus={{
+                      borderColor: "green.400",
+                      boxShadow: "0 0 0 1px var(--chakra-colors-green-400)",
+                    }}
                   >
                     {tags
-                      .find(t => t.name === selectedParent[tag.name].tag)
-                      ?.values.map(v => (
-                        <option key={v.value} value={v.value}>
-                          {v.value}
-                        </option>
-                      ))}
+                      .find((t) => t.name === selectedParent[tag.name].tag)
+                      ?.values.sort((a, b) => {
+                        const valA = typeof a === "string" ? a : a.value;
+                        const valB = typeof b === "string" ? b : b.value;
+                        return valA.localeCompare(valB);
+                      })
+                      .map((v) => {
+                        const valueInfo =
+                          typeof v === "string" ? { value: v } : v;
+                        return (
+                          <option key={valueInfo.value} value={valueInfo.value}>
+                            {valueInfo.value}
+                          </option>
+                        );
+                      })}
                   </Select>
                 )}
               </FormControl>
@@ -393,19 +422,24 @@ function TagManager() {
                   <Input
                     placeholder="Add new value"
                     value={newValues[tag.name]}
-                    onChange={(e) => setNewValues({
-                      ...newValues,
-                      [tag.name]: e.target.value
-                    })}
+                    onChange={(e) =>
+                      setNewValues({
+                        ...newValues,
+                        [tag.name]: e.target.value,
+                      })
+                    }
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddValue(tag.name)
+                      if (e.key === "Enter") {
+                        handleAddValue(tag.name);
                       }
                     }}
                     bg="green.50"
                     borderColor="green.200"
-                    _hover={{ borderColor: 'green.300' }}
-                    _focus={{ borderColor: 'green.400', boxShadow: '0 0 0 1px var(--chakra-colors-green-400)' }}
+                    _hover={{ borderColor: "green.300" }}
+                    _focus={{
+                      borderColor: "green.400",
+                      boxShadow: "0 0 0 1px var(--chakra-colors-green-400)",
+                    }}
                     pl={8}
                   />
                 </InputGroup>
@@ -421,11 +455,7 @@ function TagManager() {
         ))}
       </SimpleGrid>
 
-      <Modal 
-        isOpen={isOpen} 
-        onClose={onClose}
-        motionPreset="slideInBottom"
-      >
+      <Modal isOpen={isOpen} onClose={onClose} motionPreset="slideInBottom">
         <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(5px)" />
         <ModalContent borderRadius="xl" overflow="hidden">
           <Box bg="green.50" px={6} py={4}>
@@ -434,10 +464,10 @@ function TagManager() {
             </ModalHeader>
           </Box>
           <ModalCloseButton top={4} right={6} />
-          
+
           <ModalBody p={6}>
             <FormControl>
-              <FormLabel 
+              <FormLabel
                 color="green.700"
                 fontSize="sm"
                 fontWeight="medium"
@@ -457,8 +487,11 @@ function TagManager() {
                   onChange={(e) => setNewTagName(e.target.value)}
                   bg="green.50"
                   borderColor="green.200"
-                  _hover={{ borderColor: 'green.300' }}
-                  _focus={{ borderColor: 'green.400', boxShadow: '0 0 0 1px var(--chakra-colors-green-400)' }}
+                  _hover={{ borderColor: "green.300" }}
+                  _focus={{
+                    borderColor: "green.400",
+                    boxShadow: "0 0 0 1px var(--chakra-colors-green-400)",
+                  }}
                   pl={10}
                 />
               </InputGroup>
@@ -466,19 +499,19 @@ function TagManager() {
           </ModalBody>
 
           <ModalFooter bg="green.50" px={6} py={4}>
-            <Button 
-              variant="ghost" 
-              mr={3} 
+            <Button
+              variant="ghost"
+              mr={3}
               onClick={onClose}
               color="green.700"
-              _hover={{ bg: 'green.100' }}
+              _hover={{ bg: "green.100" }}
             >
               Cancel
             </Button>
-            <Button 
-              colorScheme="green" 
+            <Button
+              colorScheme="green"
               onClick={handleAddTag}
-              _hover={{ transform: 'translateY(-1px)' }}
+              _hover={{ transform: "translateY(-1px)" }}
               transition="all 0.2s"
             >
               Create Tag
@@ -487,7 +520,7 @@ function TagManager() {
         </ModalContent>
       </Modal>
     </VStack>
-  )
+  );
 }
 
-export default TagManager 
+export default TagManager;
